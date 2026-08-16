@@ -1,0 +1,51 @@
+# Phase 7 (Frontend Production Readiness). Keeps the build context sent to
+# the Docker daemon small (faster builds) and keeps secrets/dev-only
+# artifacts out of any image layer -- COPY . . in infra/docker/web.Dockerfile
+# only ever sees what's left after this filter.
+
+# Local env files -- real secrets belong in the deployment platform's
+# secret store / Compose env_file:, never baked into an image layer.
+# .env.example IS committed (documented defaults) and stays in context.
+.env
+.env.*
+!.env.example
+
+# Version control metadata -- explicitly excluded per docs/architecture/
+# 09-infrastructure.md §1 ("do not include ... source-control metadata in
+# the final layer").
+.git
+.gitignore
+
+# Next.js build output + node_modules -- regenerated fresh in the Dockerfile's
+# own deps/builder stages; a host-built copy would bake in the host's
+# architecture (see api.Dockerfile's identical reasoning for venvs).
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+
+# Test suite + tooling -- not needed at runtime; keeps the production image
+# smaller and avoids shipping test fixtures/playwright browsers as if they
+# were application code.
+test/
+e2e/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+vitest.config.ts
+playwright.config.ts
+
+# Debug/log files.
+*.log
+*.pem
+
+# Editor/OS cruft.
+.vscode/
+.idea/
+.DS_Store
+
+# This directory itself -- Dockerfiles never need to COPY themselves.
+infra/docker/
