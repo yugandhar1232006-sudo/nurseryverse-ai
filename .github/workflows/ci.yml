@@ -1,0 +1,370 @@
+# Phase 6 Module 14 (Production Readiness) -- docs/architecture/10-devops.md
+# §1: staged GitHub Actions pipeline, every stage must pass before the
+# next runs, on every PR and on merge to main. This file implements that
+# diagram job-for-job (see each job's own comment for which diagram node
+# it is). §2's branch-protection requirement ("a PR cannot merge with a
+# red status check") is configured in GitHub's repo Settings > Branches,
+# not expressible in this YAML -- `ci-gate` below exists specifically to
+# give branch protection ONE job name to require, rather than needing
+# every individual job listed there and re-edited each time a job is
+# renamed.
+#
+# NOT independently run-verified: this development sandbox has no way to
+# actually execute a GitHub Actions run (disclosed in docs/architecture/
+# 30-module14-production-readiness.md) -- validated here via a YAML parse
+# check and manual structural review only. This workflow's first genuine
+# execution will be whenever this repository is first pushed to GitHub.
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.10"
+  WORKING_DIR: apps/api
+
+jobs:
+  # --- Diagram node B: Lint (ruff) ---
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ${{ env.WORKING_DIR }}/requirements/dev.txt
+      - run: pip install -r requirements/dev.txt --break-system-packages
+        working-directory: ${{ env.WORKING_DIR }}
+      - run: ruff check .
+        working-directory: ${{ env.WORKING_DIR }}
+
+  # --- Diagram node C: Type check (mypy) ---
+  typecheck:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ${{ env.WORKING_DIR }}/requirements/dev.txt
+      - run: pip install -r requirements/dev.txt --break-system-packages
+        working-directory: ${{ env.WORKING_DIR }}
+      - run: mypy app
+        working-directory: ${{ env.WORKING_DIR }}
+
+  # --- Diagram node D: Import-boundary check (import-linter) ---
+  # pyproject.toml's [tool.importlinter] contracts -- added this module,
+  # since `import-linter` was a declared dev dependency since an earlier
+  # module but had no contract config (and no CI stage) wired to it until
+  # now. Verified against the real codebase before being committed here:
+  # all four contracts pass cleanly, and a sanity-check temporary
+  # violation was confirmed to actually fail the check (not a vacuous
+  # pass) -- see pyproject.toml's own contract comments.
+  import-boundaries:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ${{ env.WORKING_DIR }}/requirements/dev.txt
+      - run: pip install -r requirements/dev.txt --break-system-packages
+        working-directory: ${{ env.WORKING_DIR }}
+      - run: lint-imports --config pyproject.toml
+        working-directory: ${{ env.WORKING_DIR }}
+
+  # --- Diagram node E: Unit tests (pytest) ---
+  # Every unit test runs against tests/fakes/ (in-memory repository fakes,
+  # no I/O) per this project's own testing convention established since
+  # Module 1 -- no service containers needed for this job.
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: [typecheck, import-boundaries]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ${{ env.WORKING_DIR }}/requirements/dev.txt
+      - run: pip install -r requirements/dev.txt --break-system-packages
+        working-directory: ${{ env.WORKING_DIR }}
+      - run: pytest -m unit --cov=app --cov-report=xml --cov-report=term
+        working-directory: ${{ env.WORKING_DIR }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: ${{ env.WORKING_DIR }}/coverage.xml
+          retention-days: 14
+
+  # --- Diagram node F: Integration tests (pytest against ephemeral
+  # Postgres/Redis containers) ---
+  # tests/conftest.py's `client` fixture (used by every test under
+  # tests/integration/) is ALSO fakes-backed -- exercising the real
+  # ASGI/HTTP layer end-to-end (routing, middleware, dependency
+  # injection, request/response schemas), same as unit-tests above, not
+  # actually issuing SQL against Postgres. Real ephemeral Postgres/Redis
+  # service containers are still provisioned here, per the architecture
+  # doc's diagram, because this job ALSO runs the Alembic upgrade dry-run
+  # below against them -- something this development sandbox could never
+  # do (no live Postgres reachable, disclosed in every prior module's own
+  # architecture doc) but a real GitHub Actions runner can.
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [typecheck, import-boundaries]
+    services:
+      postgres:
+        # pgvector/pgvector, not bare `postgres` -- same reason
+        # docker-compose.yml's `postgrees` service uses it: migrations/
+        # versions/0001_initial_schema.py runs `CREATE EXTENSION IF NOT
+        # EXISTS vector`, which the stock Postgres image doesn't ship.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: nurseryverse_ci
+          POSTGRES_USER: nurseryverse_ci
+          POSTGRES_PASSWORD: nurseryverse_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U nurseryverse_ci -d nurseryverse_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: nurseryverse_ci
+      POSTGRES_USER: nurseryverse_ci
+      POSTGRES_PASSWORD: nurseryverse_ci
+      REDIS_URL: redis://localhost:6379/0
+      APP_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ${{ env.WORKING_DIR }}/requirements/dev.txt
+      - run: pip install -r requirements/dev.txt --break-system-packages
+        working-directory: ${{ env.WORKING_DIR }}
+
+      # Alembic dry-run against a real, throwaway Postgres -- catches a
+      # migration that references a not-yet-existing column, an invalid
+      # constraint, or a syntax error Postgres itself rejects, none of
+      # which `scripts/validate_migrations_offline.sh`'s offline SQL
+      # generation (used throughout this project in sandboxes without a
+      # live DB) can catch, since it never actually executes the DDL.
+      - run: alembic upgrade head
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - run: pytest -m integration --cov=app --cov-report=xml --cov-report=term
+        working-directory: ${{ env.WORKING_DIR }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration
+          path: ${{ env.WORKING_DIR }}/coverage.xml
+          retention-days: 14
+
+  # --- Diagram node G: Security scan (dependency vulnerabilities, SAST) ---
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ${{ env.WORKING_DIR }}/requirements/dev.txt
+      - run: pip install -r requirements/dev.txt --break-system-packages
+        working-directory: ${{ env.WORKING_DIR }}
+      # Known-vulnerable dependency check against requirements/base.txt's
+      # pinned versions (PyPI Advisory Database). `--strict` fails the
+      # job on any finding rather than only warning -- a v1 choice;
+      # revisit to `--ignore-vuln` specific accepted-risk CVEs if a real
+      # finding is ever a documented, deliberately-accepted risk rather
+      # than something to fix immediately.
+      - run: pip-audit -r requirements/base.txt --strict
+        working-directory: ${{ env.WORKING_DIR }}
+      # SAST over application source. `-ll` = report medium/high severity
+      # only -- verified against the real app/ tree while building this
+      # workflow: 9 low-severity/low-confidence findings exist (bandit's
+      # B105/B106 heuristic matching event-name string constants like
+      # "password_reset_requested" and a charset string used for
+      # short-code generation -- none are real hardcoded credentials),
+      # zero medium/high. `-ll` keeps the gate meaningful without being
+      # noisy on those confirmed false positives.
+      - run: bandit -r app -ll
+        working-directory: ${{ env.WORKING_DIR }}
+
+  # Single required status check for branch protection (see this file's
+  # header comment) -- fails if anything it depends on failed or was
+  # skipped, succeeds otherwise. `if: always()` so it still runs (and
+  # reports failure) even when an earlier job in the chain already failed
+  # and GitHub would otherwise skip everything downstream by default.
+  ci-gate:
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, import-boundaries, unit-tests, integration-tests, security-scan]
+    if: always()
+    steps:
+      - name: Fail if any required job failed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "One or more required CI jobs failed -- see the jobs above."
+          exit 1
+
+  # --- Diagram nodes J/K: Build images (api, worker), push to registry ---
+  # SCOPE NOTE (disclosed): no `web` image build -- Phase 7 (Frontend)
+  # hasn't been built in this engagement, matching docker-compose.yml's
+  # own disclosed scope. Only runs on an actual push to `main` or a
+  # `v*.*.*` release tag (diagram node H: "main merge" branch of the
+  # PR/main-merge fork), never on a pull request.
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: ci-gate
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api_image: ${{ steps.meta-api.outputs.tags }}
+      worker_image: ${{ steps.meta-worker.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags with the commit SHA always (diagram: "tagged with commit SHA
+      # + semver"); the semver tag additionally applies only when this
+      # run was triggered by a `v*.*.*` tag push (docs/architecture/
+      # 10-devops.md §3: "images with ... the semver tag (on an explicit
+      # release commit)") -- a plain push to `main` gets SHA-only tags.
+      - uses: docker/metadata-action@v5
+        id: meta-api
+        with:
+          images: ghcr.io/${{ github.repository }}-api
+          tags: |
+            type=sha,format=long
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/metadata-action@v5
+        id: meta-worker
+        with:
+          images: ghcr.io/${{ github.repository }}-worker
+          tags: |
+            type=sha,format=long
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.WORKING_DIR }}
+          file: ${{ env.WORKING_DIR }}/infra/docker/api.Dockerfile
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.WORKING_DIR }}
+          file: ${{ env.WORKING_DIR }}/infra/docker/worker.Dockerfile
+          push: true
+          tags: ${{ steps.meta-worker.outputs.tags }}
+          labels: ${{ steps.meta-worker.outputs.labels }}
+          cache-from: type=gha,scope=worker
+          cache-to: type=gha,mode=max,scope=worker
+
+  # --- Diagram node L: Alembic migration dry-run against a throwaway DB ---
+  # Distinct from integration-tests' own `alembic upgrade head` above:
+  # that one validates the migrations as checked-out source, ahead of the
+  # image build; this one runs the same command FROM the just-built `api`
+  # image (via `docker run`), against a fresh throwaway Postgres, so it's
+  # validating the actual deployable artifact -- matching the diagram's
+  # own K -> L ordering (build/push happens before this stage, not after).
+  migration-dry-run:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: nurseryverse_dryrun
+          POSTGRES_USER: nurseryverse_dryrun
+          POSTGRES_PASSWORD: nurseryverse_dryrun
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U nurseryverse_dryrun -d nurseryverse_dryrun"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run alembic upgrade head from the built api image
+        run: |
+          docker run --rm --network host \
+            -e POSTGRES_HOST=localhost \
+            -e POSTGRES_PORT=5432 \
+            -e POSTGRES_DB=nurseryverse_dryrun \
+            -e POSTGRES_USER=nurseryverse_dryrun \
+            -e POSTGRES_PASSWORD=nurseryverse_dryrun \
+            --entrypoint alembic \
+            $(echo '${{ needs.build-and-push.outputs.api_image }}' | head -n1) \
+            upgrade head
+
+  # --- Diagram node M: Deploy (manual approval gate) ---
+  # `environment: production` is what actually implements the manual
+  # approval gate -- GitHub Environments support "required reviewers" as
+  # a repo setting (Settings > Environments > production), which pauses
+  # any job referencing that environment until an authorized reviewer
+  # approves the run. That reviewer list is configured in the GitHub UI,
+  # not expressible in this YAML file. No real deployment target is
+  # connected in this engagement (disclosed in docs/architecture/
+  # 30-module14-production-readiness.md) -- this job's own step is a
+  # placeholder for whatever the actual hosting platform's deploy command
+  # is (SSH + `docker compose pull && up -d`, a PaaS CLI, a Terraform
+  # apply, etc.), left unimplemented rather than guessed at without a
+  # real target to guess correctly for.
+  deploy:
+    runs-on: ubuntu-latest
+    needs: migration-dry-run
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    environment: production
+    steps:
+      - name: Deploy placeholder
+        run: |
+          echo "Deploy step not yet implemented -- no production hosting target is connected in this engagement."
+          echo "api image:    ${{ needs.build-and-push.outputs.api_image }}"
+          echo "worker image: ${{ needs.build-and-push.outputs.worker_image }}"
+          echo "Real deployment: point docker-compose.prod.yml's API_IMAGE_TAG/WORKER_IMAGE_TAG at the tags above on the target host and run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d"

@@ -1,0 +1,113 @@
+
+# Phase 6 Module 14 (Production Readiness) -- import-linter contracts.
+# docs/architecture/10-devops.md §1's CI pipeline names "Import-boundary
+# check - import-linter" as its own stage (between type-check and unit
+# tests); `import-linter` (requirements/dev.txt) has been a declared dev
+# dependency since an earlier module but was never actually wired to a
+# contract config until now -- this file (and Task #162's CI workflow
+# invoking it) closes that gap.
+#
+# Contracts encode, as an enforced regression guard rather than only a
+# standing instruction, this engagement's own governing rule: "never
+# bypass AuthorizationService/PermissionService/Repository/Service
+# layers." Verified against the real, current codebase before being
+# written here (not aspirational) -- see each contract's own comment for
+# what was checked.
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "Routes must not import concrete repository implementations"
+type = "forbidden"
+source_modules = ["app.api.routes"]
+forbidden_modules = [
+    "app.repositories.sqlalchemy_repositories",
+    "app.db.session",
+]
+# Verified clean as of this module: every route module that imports from
+# app.repositories at all imports only app.repositories.interfaces (pure
+# typing.Protocol definitions used to type-hint Depends() parameters, no
+# I/O) -- app.api.deps.py (NOT part of app.api.routes -- a sibling
+# module, the composition root) is where concrete SqlAlchemy* repository
+# classes actually get instantiated and injected. This contract makes
+# that boundary permanent rather than only conventional.
+#
+# import-linter's "forbidden" contract checks reachability transitively
+# (any path, not just direct imports) -- without the two ignore_imports
+# edges below, every route would trivially "reach" both forbidden modules
+# via `routes.* -> app.api.deps -> {sqlalchemy_repositories, db.session}`,
+# which is deps.py's *intended* job as the FastAPI dependency-injection
+# composition root, not a violation. These two edges name exactly that
+# expected wiring and exclude it from the reachability check, so what
+# actually still gets caught is a route module that imports a concrete
+# repository or app.db.session *directly*, bypassing deps.py -- which is
+# the real thing this contract exists to prevent.
+#
+# health.py's /readyz probe imports raw `sqlalchemy.text` (not
+# app.db.session or app.repositories.sqlalchemy_repositories) to run a
+# bare `SELECT 1` connectivity check -- deliberately not routed through a
+# repository/service, since "can we reach Postgres at all" isn't domain
+# data a repository would model. No ignore_imports entry is needed for
+# that one: forbidden_modules above never named the third-party
+# `sqlalchemy` package itself, only this project's own session/repository
+# modules, so that import was never in scope to begin with.
+ignore_imports = [
+    "app.api.deps -> app.repositories.sqlalchemy_repositories",
+    "app.api.deps -> app.db.session",
+]
+
+[[tool.importlinter.contracts]]
+name = "Services must not import from the API layer"
+type = "forbidden"
+source_modules = ["app.services"]
+forbidden_modules = ["app.api"]
+# Verified clean as of this module (`grep` found zero matches) -- a
+# service that reached back into app.api (e.g. to raise an HTTPException
+# directly, or read a Request object) would break the "services are
+# transport-agnostic, routes translate to/from HTTP" separation every
+# prior module's schemas-vs-domain-vs-persistence split already assumes.
+
+[[tool.importlinter.contracts]]
+name = "Repositories must not import services"
+type = "forbidden"
+source_modules = ["app.repositories"]
+forbidden_modules = ["app.services", "app.api"]
+# Verified clean. Repositories are the lowest application layer above the
+# ORM models -- a repository that imported a service would create the
+# exact import cycle the layered architecture (services depend on
+# repository *interfaces*, repositories depend on models, never the
+# reverse) is designed to make structurally impossible.
+
+[[tool.importlinter.contracts]]
+name = "Domain models must stay free of application-layer imports"
+type = "forbidden"
+source_modules = ["app.models"]
+forbidden_modules = ["app.services", "app.repositories", "app.api", "app.schemas"]
+# Verified clean. app.models are SQLAlchemy ORM declarations only --
+# keeping them free of every higher layer's imports is what lets
+# repositories, services, and the six AI prediction modules (Module 10)
+# all import a plant/inventory/sale model without ever risking a circular
+# import back through application logic.
+
+# Phase 6 Module 14 (Production Readiness) -- mypy config. No mypy config
+# file existed anywhere in this project before this module (confirmed by
+# searching for mypy.ini/setup.cfg/[tool.mypy] prior to adding this) --
+# `mypy app` had been run with pure defaults in every prior module. This
+# section deliberately does NOT add global strictness flags (`strict`,
+# `disallow_untyped_defs`, etc.) that weren't already implicitly in force
+# -- doing so now would likely surface a large number of new findings
+# across 13 modules' worth of existing code well beyond this module's own
+# scope, which is exactly the kind of silent architecture/tooling change
+# the standing process rules warn against. The one thing added is the
+# override below, which closes a real gap `mypy app` surfaced while
+# running this module's own full validation pass: `cloudinary` (Module 9/
+# 12's file-storage/media dependency) has no official `types-cloudinary`
+# stub package on PyPI (confirmed: `pip index versions types-cloudinary`
+# returns no match) -- every other untyped third-party dependency mypy
+# flagged (openpyxl, reportlab, python-jose, celery) was closed instead by
+# installing a real stub package (requirements/dev.txt), which is the
+# correct fix where one exists; this override is the fallback for the one
+# case where it doesn't.
+[[tool.mypy.overrides]]
+module = "cloudinary.*"
+ignore_missing_imports = true

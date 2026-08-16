@@ -1,0 +1,65 @@
+# NurseryVerse AI — root ignore file.
+# Complementary to apps/web/.gitignore and the self-ignoring cache dirs under
+# apps/api/ (each of .pytest_cache/.ruff_cache/.mypy_cache/.import_linter_cache
+# contains its own `*` .gitignore). Nothing here removes a committed file; it
+# only keeps generated/transient artifacts out of the baseline snapshot.
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.import_linter_cache/
+.pip-audit-cache/
+
+# --- Node (defense in depth; apps/web/.gitignore already covers these) ---
+node_modules/
+.next/
+out/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+
+# --- Build output ---
+dist/
+build/
+*.tsbuildinfo
+
+# --- Environment / secrets (keep only committed .env.example templates) ---
+# `.env`/`.env.*` match at any depth; the negation keeps every `.env.example`
+# template committable. No `**/.env.example` re-ignore — that would undo this.
+.env
+.env.*
+!.env.example
+
+# --- Credentials / keys ---
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# --- Logs & transient ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

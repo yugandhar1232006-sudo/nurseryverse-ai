@@ -1,0 +1,248 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Phase 7A (Frontend Foundation) -- design tokens, transcribed verbatim
+ * from docs/design/06-design-tokens.md into Tailwind v4's CSS-first
+ * `@theme` format (Tailwind v4 does not use tailwind.config.js for
+ * design tokens -- theme values are CSS custom properties, mapped to
+ * utility classes automatically by name, e.g. `--color-primary-500`
+ * generates `bg-primary-500`/`text-primary-500`/etc.)
+ *
+ * Spacing and icon-size tokens are deliberately NOT redefined here:
+ * docs/design/06-design-tokens.md's `space-*`/`icon-*` values (4px, 8px,
+ * 12px, 16px, 24px, 32px, 48px, 64px, 96px / 16px, 20px, 24px, 32px)
+ * already exactly match Tailwind's own default spacing/sizing scale
+ * (n * 4px) -- `space-4` = Tailwind's `p-4`/`gap-4`, `icon-md` (20px) =
+ * Tailwind's `size-5`, etc. Redefining them would just be a second name
+ * for the same value.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* --- Primary (brand green) --- */
+  --color-primary-50: #f0f9f1;
+  --color-primary-100: #dcf0de;
+  --color-primary-300: #8fcb98;
+  --color-primary-500: #2f8f42;
+  --color-primary-600: #24732f;
+  --color-primary-700: #1c5b26;
+  --color-primary-900: #0f3315;
+
+  /* --- Neutral --- */
+  --color-neutral-50: #fafaf9;
+  --color-neutral-100: #f2f1ef;
+  --color-neutral-200: #e5e3e0;
+  --color-neutral-300: #d1cec9;
+  --color-neutral-400: #a8a39c;
+  --color-neutral-500: #7c766d;
+  --color-neutral-600: #5c574f;
+  --color-neutral-700: #423e38;
+  --color-neutral-800: #2c2925;
+  --color-neutral-900: #1b1917;
+  --color-neutral-950: #100f0d;
+
+  /* --- Semantic --- */
+  --color-success-light: #e6f6ec;
+  --color-success: #1e9e4f;
+  --color-success-dark: #14622f;
+  --color-warning-light: #fef6e7;
+  --color-warning: #d68a0c;
+  --color-warning-dark: #8a5906;
+  --color-danger-light: #fbeaea;
+  --color-danger: #d6392e;
+  --color-danger-dark: #8c231c;
+  --color-info-light: #e9f1fc;
+  --color-info: #2d6fd1;
+  --color-info-dark: #1c4785;
+
+  /* --- Health-Status Scale (domain, 5-step) --- */
+  --color-health-excellent: #1e9e4f;
+  --color-health-good: #7cb518;
+  --color-health-fair: #d68a0c;
+  --color-health-poor: #e36414;
+  --color-health-critical: #d6392e;
+
+  /* --- Growth-Stage Scale (domain, sequential, non-alarming) --- */
+  --color-growth-seedling: #7fb3d5;
+  --color-growth-juvenile: #52a675;
+  --color-growth-mature: #2f8f42;
+  --color-growth-flowering: #c77dbb;
+  --color-growth-dormant: #8c8577;
+
+  /* --- AI Accent --- */
+  --color-ai-accent-50: #f3f0fc;
+  --color-ai-accent-300: #b6a3ee;
+  --color-ai-accent-500: #7c5ce0;
+  --color-ai-accent-700: #5a3db8;
+
+  /* --- Typography --- */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: 36px;
+  --text-display--line-height: 44px;
+  --text-display--font-weight: 700;
+  --text-h1: 28px;
+  --text-h1--line-height: 36px;
+  --text-h1--font-weight: 700;
+  --text-h2: 22px;
+  --text-h2--line-height: 30px;
+  --text-h2--font-weight: 600;
+  --text-h3: 18px;
+  --text-h3--line-height: 26px;
+  --text-h3--font-weight: 600;
+  --text-h4: 16px;
+  --text-h4--line-height: 22px;
+  --text-h4--font-weight: 600;
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 24px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-overline: 11px;
+  --text-overline--line-height: 14px;
+  --text-overline--font-weight: 500;
+
+  /* --- Border Radius --- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* --- Shadows --- */
+  --shadow-flat: none;
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-overlay: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-modal: 0 20px 25px rgba(0, 0, 0, 0.1), 0 8px 10px rgba(0, 0, 0, 0.08);
+
+  /* --- Z-Index (docs/design/06-design-tokens.md §Z-Index Tokens, verbatim).
+       Named rather than left as bare z-10/20/etc. utilities so component
+       code reads as intent ("z-overlay-scrim") instead of a number whose
+       meaning has to be looked up. --- */
+  --z-index-sticky: 10;
+  --z-index-dropdown: 20;
+  --z-index-overlay-scrim: 30;
+  --z-index-overlay: 40;
+  --z-index-toast: 50;
+  --z-index-tooltip: 60;
+
+  /* --- Transitions --- */
+  --default-transition-duration: 150ms;
+  --ease-instant: ease-out;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-deliberate: ease-in-out;
+
+  /* --- Breakpoints (extends Tailwind's defaults with the project's own
+       named tiers; `sm`/`lg` already equal tablet/laptop exactly, kept as
+       explicit aliases so component code can read as intent-revealing
+       `laptop:` rather than a bare `lg:` that requires knowing the mapping) --- */
+  --breakpoint-tablet: 640px;
+  --breakpoint-laptop: 1024px;
+  --breakpoint-desktop: 1440px;
+}
+
+/*
+ * Semantic surface/text/border tokens -- theme-aware (light vs. dark),
+ * so they're plain CSS custom properties switched by the `.dark` class
+ * (next-themes) rather than `@theme` entries (which are static, one
+ * value per token name). Mapped into `@theme inline` below so
+ * `bg-surface-card`/`text-text-secondary`/etc. still work as utilities.
+ */
+:root {
+  --surface-page: var(--color-neutral-50);
+  --surface-card: #ffffff;
+  --text-primary: var(--color-neutral-900);
+  --text-secondary: var(--color-neutral-600);
+  --border-default: var(--color-neutral-200);
+}
+
+.dark {
+  --surface-page: var(--color-neutral-950);
+  --surface-card: var(--color-neutral-900);
+  --text-primary: var(--color-neutral-50);
+  --text-secondary: var(--color-neutral-400);
+  --border-default: var(--color-neutral-700);
+}
+
+@theme inline {
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-border-default: var(--border-default);
+
+  /* shadcn/ui-style semantic aliases -- primitives in components/ui/ are
+     written against these generic names (background/foreground/border/
+     ring/etc.) rather than the domain-specific tokens above directly, so
+     a primitive never has to know it's specifically "surface-card" vs.
+     some future new surface -- it just asks for "card". */
+  --color-background: var(--surface-page);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--surface-card);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--surface-card);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--color-primary-500);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--color-neutral-100);
+  --color-secondary-foreground: var(--color-neutral-900);
+  --color-muted: var(--color-neutral-100);
+  --color-muted-foreground: var(--text-secondary);
+  --color-accent: var(--color-neutral-100);
+  --color-accent-foreground: var(--color-neutral-900);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--border-default);
+  --color-input: var(--border-default);
+  --color-ring: var(--color-primary-500);
+}
+
+.dark {
+  --color-secondary: var(--color-neutral-800);
+  --color-secondary-foreground: var(--color-neutral-50);
+  --color-muted: var(--color-neutral-800);
+  --color-accent: var(--color-neutral-800);
+  --color-accent-foreground: var(--color-neutral-50);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans text-body;
+  }
+}
+
+/* Reduced-motion support (accessibility -- Phase 7's own quality-gate
+   requirement): Framer Motion components should read this via
+   `useReducedMotion()`, but plain CSS transitions/animations elsewhere
+   in the app are covered globally here regardless of which mechanism
+   triggered them. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Exception: indeterminate loading indicators (components/ui/spinner.tsx,
+     the AI "thinking" state, etc.). prefers-reduced-motion targets
+     vestibular-triggering motion (parallax, large-scale movement,
+     auto-playing decorative animation) -- a small in-place spin that is
+     itself the only signal an operation is still running is functional,
+     not decorative, and flattening it to a static (and therefore
+     misleading -- "is this still loading or did it freeze?") icon is a
+     worse accessibility outcome than leaving it animating. */
+  [role="status"],
+  [role="status"] * {
+    animation-duration: revert !important;
+    animation-iteration-count: revert !important;
+  }
+}

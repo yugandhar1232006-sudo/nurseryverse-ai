@@ -1,0 +1,131 @@
+# Phase 6 Module 14 (Production Readiness) -- production overlay.
+# docs/architecture/09-infrastructure.md §2: "docker-compose.prod.yml
+# (production overlay -- no bind mounts, resource limits per service,
+# `restart: unless-stopped`, references pre-built images by tag rather
+# than building in place)."
+#
+# Applied ON TOP OF docker-compose.yml, not standalone:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Requires Docker Compose v2.24+ for the `!override` merge tag used below
+# (removes docker-compose.yml's dev-only bind mounts / host port
+# publishes / `build:` / `command:` overrides entirely, rather than
+# Compose's default list-concatenation merge behavior, which would
+# otherwise leave them in place alongside this file's replacements). NOT
+# independently run-verified against a real Compose binary in this
+# sandbox -- see docker-compose.yml's own header comment for why.
+#
+# Same SCOPE NOTE as docker-compose.yml: no `web` service (Phase 7 not
+# built yet).
+#
+# Images are referenced by tag (`${API_IMAGE_TAG}` etc.), built and pushed
+# by Task #162's GitHub Actions pipeline -- this file never runs `docker
+# build` itself, per the architecture doc's "rather than building in
+# place" above. Secrets (POSTGRES_PASSWORD, JWT_PRIVATE_KEY/PUBLIC_KEY,
+# ANTHROPIC_API_KEY, etc.) must come from the deployment platform's own
+# secret store / a `.env` that is itself never committed -- this file only
+# ever references them by `${VAR}` substitution, never inlines a value.
+
+name: nurseryverse
+
+services:
+  postgres:
+    restart: unless-stopped
+    ports: !override []  # no host-published port in production -- only nginx faces the internet
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  redis:
+    restart: unless-stopped
+    ports: !override []  # no host-published port in production -- only nginx faces the internet
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          memory: 128M
+
+  api:
+    build: !override null
+    image: ${API_IMAGE_TAG:?API_IMAGE_TAG must be set, e.g. ghcr.io/org/nurseryverse-api:1.4.2}
+    command: !override null  # falls back to the image's own production CMD (gunicorn+uvicorn workers) -- no dev `--reload` override
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      WEB_CONCURRENCY: ${API_WEB_CONCURRENCY:-4}
+    volumes: !override []  # no bind mounts -- the built image is the deployable artifact, per the architecture doc quoted above
+    ports: !override []  # only nginx is reachable from outside the Compose network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+
+  worker:
+    build: !override null
+    image: ${WORKER_IMAGE_TAG:?WORKER_IMAGE_TAG must be set, e.g. ghcr.io/org/nurseryverse-worker:1.4.2}
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+    volumes: !override []
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G  # highest of the four app services -- torch/xgboost/prophet inference runs here, not in `api`
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+
+  beat:
+    build: !override null
+    image: ${WORKER_IMAGE_TAG:?WORKER_IMAGE_TAG must be set, e.g. ghcr.io/org/nurseryverse-worker:1.4.2}
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+    volumes: !override []
+    restart: unless-stopped
+    deploy:
+      # Celery beat must never run more than one replica at a time (two
+      # beat processes would each independently fire every scheduled
+      # task, double-running both sweeps in app/workers.py) -- pinned
+      # explicitly rather than left to default, since `deploy.replicas`
+      # is the one place in this file where "unset" could silently become
+      # "more than one" under some orchestrators.
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  nginx:
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes: !override
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
+      # TLS certificate material -- path is a deployment-platform choice
+      # (certbot volume, mounted secret, etc.); not populated by this
+      # repo. docs/architecture/09-infrastructure.md §3: "TLS termination
+      # (cert managed via the deployment platform or Let's Encrypt/
+      # certbot, outside the scope of the Compose stack itself)."
+      - ${TLS_CERT_DIR:-./infra/nginx/certs}:/etc/nginx/certs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 256M

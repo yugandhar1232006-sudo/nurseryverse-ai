@@ -1,0 +1,42 @@
+# Phase 6 Module 14 (Production Readiness). Keeps the build context sent to
+# the Docker daemon small (faster builds) and, more importantly, keeps
+# secrets/dev-only artifacts out of any image layer -- COPY app ./app in
+# infra/docker/*.Dockerfile only ever sees what's left after this filter.
+
+# Local env files -- real secrets belong in the deployment platform's
+# secret store / Compose `env_file:`, never baked into an image layer.
+.env
+.env.*
+!.env.example
+
+# Version control metadata -- explicitly excluded per docs/architecture/
+# 09-infrastructure.md §1 ("do not include ... source-control metadata in
+# the final layer").
+.git
+.gitignore
+
+# Python bytecode / virtualenvs / caches -- regenerated fresh in the
+# `deps` build stage; copying a host-built venv in would bake in the
+# host's architecture/Python patch version instead of the image's own.
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Test suite -- not needed at runtime; keeps the production image smaller
+# and avoids shipping test fixtures/fakes as if they were application code.
+tests/
+
+# Editor/OS cruft.
+.vscode/
+.idea/
+.DS_Store
+
+# This directory itself -- Dockerfiles never need to COPY themselves.
+infra/docker/

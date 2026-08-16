@@ -1,0 +1,26 @@
+# Phase 6 Module 14 (Production Readiness) -- WAL archiving settings.
+# Append to the production Postgres instance's postgresql.conf (or pass
+# as `command:` overrides / a mounted conf.d/ file, depending on how the
+# `postgres` service is actually deployed -- the stock `pgvector/pgvector`
+# image used by docker-compose.yml/.prod.yml supports mounting extra
+# config into /etc/postgresql/postgresql.conf.d/ or via `-c key=value`
+# command-line flags). NOT applied automatically by docker-compose.yml
+# itself in this repository -- local development intentionally runs
+# without WAL archiving/PITR (nothing in dev needs a 15-minute RPO); wire
+# this in specifically for the production deployment target, alongside
+# provisioning BACKUP_S3_BUCKET.
+#
+# NOT independently verified against a running Postgres instance (no live
+# Postgres in this development sandbox, disclosed in docs/architecture/
+# 30-module14-production-readiness.md).
+
+wal_level = replica
+archive_mode = on
+archive_command = '/infra/backup/wal_archive.sh %p %f'
+archive_timeout = 300
+# archive_timeout forces a WAL segment switch (and therefore an archive
+# upload) at least every 5 minutes even during low-write-volume periods --
+# without it, a segment only archives once it fills, which on a quiet
+# night could take far longer than 5 minutes and blow past the
+# documented 15-minute RPO target for reasons having nothing to do with
+# archiving actually being slow.
