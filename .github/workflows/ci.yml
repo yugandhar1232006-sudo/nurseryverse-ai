@@ -1,17 +1,22 @@
-# Phase 6 Module 14 (Production Readiness) -- docs/architecture/10-devops.md
-# §1: staged GitHub Actions pipeline, every stage must pass before the
-# next runs, on every PR and on merge to main. This file implements that
-# diagram job-for-job (see each job's own comment for which diagram node
-# it is). §2's branch-protection requirement ("a PR cannot merge with a
-# red status check") is configured in GitHub's repo Settings > Branches,
-# not expressible in this YAML -- `ci-gate` below exists specifically to
-# give branch protection ONE job name to require, rather than needing
-# every individual job listed there and re-edited each time a job is
-# renamed.
+# Phase 6 Module 14 (Production Readiness) + Phase 7 (Frontend) --
+# docs/architecture/10-devops.md §1: staged GitHub Actions pipeline, every
+# stage must pass before the next runs, on every PR and on merge to main.
+# This file implements that diagram job-for-job (see each job's own comment
+# for which diagram node it is). The diagram's "Lint - ruff, eslint" /
+# "Type check - mypy, tsc" / "Unit tests - pytest, vitest" nodes each have
+# TWO jobs -- one per app -- since the frontend (apps/web) and backend
+# (apps/api) are separate workspaces with separate toolchains. The
+# frontend x backend Playwright suite (`e2e-tests`) is Phase 7's addition,
+# exercising the real Next.js app against a real uvicorn-served API +
+# ephemeral Postgres/Redis. §2's branch-protection requirement ("a PR
+# cannot merge with a red status check") is configured in GitHub's repo
+# Settings > Branches, not expressible in this YAML -- `ci-gate` below
+# exists specifically to give branch protection ONE job name to require,
+# rather than needing every individual job listed there and re-edited each
+# time a job is renamed.
 #
 # NOT independently run-verified: this development sandbox has no way to
-# actually execute a GitHub Actions run (disclosed in docs/architecture/
-# 30-module14-production-readiness.md) -- validated here via a YAML parse
+# actually execute a GitHub Actions run -- validated here via a YAML parse
 # check and manual structural review only. This workflow's first genuine
 # execution will be whenever this repository is first pushed to GitHub.
 
@@ -30,7 +35,9 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.10"
+  NODE_VERSION: "26"
   WORKING_DIR: apps/api
+  WEB_DIR: apps/web
 
 jobs:
   # --- Diagram node B: Lint (ruff) ---
@@ -218,6 +225,172 @@ jobs:
       - run: bandit -r app -ll
         working-directory: ${{ env.WORKING_DIR }}
 
+  # --- Diagram node B (frontend half): Lint (eslint) ---
+  # Independent of the backend `lint` job -- separate workspace, separate
+  # toolchain (eslint-config-next, not ruff). Run on every PR and push.
+  frontend-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.WEB_DIR }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ env.WEB_DIR }}
+      - run: npm run lint
+        working-directory: ${{ env.WEB_DIR }}
+
+  # --- Diagram node C (frontend half): Type check (tsc) ---
+  frontend-typecheck:
+    runs-on: ubuntu-latest
+    needs: frontend-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.WEB_DIR }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ env.WEB_DIR }}
+      - run: npm run typecheck
+        working-directory: ${{ env.WEB_DIR }}
+
+  # --- Diagram node E (frontend half): Unit tests (vitest) ---
+  # jsdom-based React Testing Library suite -- no service containers, no
+  # network; MSW intercepts at the real fetch layer (see test/setup.ts).
+  frontend-test:
+    runs-on: ubuntu-latest
+    needs: frontend-typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.WEB_DIR }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ env.WEB_DIR }}
+      - run: npm test
+        working-directory: ${{ env.WEB_DIR }}
+
+  # --- Diagram node F+ (Phase 7 addition): Frontend x backend E2E ---
+  # Playwright drives the REAL Next.js app (next build + next start) against
+  # a REAL FastAPI backend (uvicorn, not test doubles) + ephemeral
+  # Postgres/Redis. This is the one place the full production-shaped
+  # topology is exercised -- every e2e/*.spec.ts self-provisions its own
+  # user/org/branch/plants through the real API, so `alembic upgrade head`
+  # (schema + seeded metadata: categories, units, roles, permissions) is
+  # the only seed needed. The browser (localhost:3000) calls the API
+  # (localhost:8000) cross-origin, exactly like the local dev stack --
+  # hence CORS_ALLOWED_ORIGINS below (the same-origin nginx topology is a
+  # production-only concern, see infra/docker/web.Dockerfile's header).
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [frontend-test, integration-tests]
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: nurseryverse_e2e
+          POSTGRES_USER: nurseryverse_e2e
+          POSTGRES_PASSWORD: nurseryverse_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U nurseryverse_e2e -d nurseryverse_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: nurseryverse_e2e
+      POSTGRES_USER: nurseryverse_e2e
+      POSTGRES_PASSWORD: nurseryverse_e2e
+      REDIS_URL: redis://localhost:6379/0
+      APP_ENV: test
+      CORS_ALLOWED_ORIGINS: '["http://localhost:3000"]'
+      # Read by BOTH the `next build` step below (inlined into the client
+      # bundle) and the Playwright specs' own direct API calls -- the
+      # e2e/*.spec.ts files all default to this same value.
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: ${{ env.WORKING_DIR }}/requirements/dev.txt
+      - run: pip install -r requirements/dev.txt --break-system-packages
+        working-directory: ${{ env.WORKING_DIR }}
+      - run: alembic upgrade head
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.WEB_DIR }}/package-lock.json
+      - run: npm ci
+        working-directory: ${{ env.WEB_DIR }}
+
+      # Chromium + its system library dependencies on the Ubuntu runner.
+      - run: npx playwright install --with-deps chromium
+        working-directory: ${{ env.WEB_DIR }}
+
+      - name: Start the API (uvicorn)
+        run: nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Wait for the API to be ready
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fsS http://localhost:8000/healthz >/dev/null 2>&1; then
+              echo "API ready after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not become ready"; tail -50 /tmp/api.log || true; exit 1
+
+      - run: npm run build
+        working-directory: ${{ env.WEB_DIR }}
+
+      - name: Start the web app (next start)
+        run: nohup npm run start > /tmp/web.log 2>&1 &
+        working-directory: ${{ env.WEB_DIR }}
+
+      - name: Wait for the web app to be ready
+        run: |
+          for i in $(seq 1 90); do
+            if curl -fsS http://localhost:3000/health >/dev/null 2>&1; then
+              echo "web ready after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "web did not become ready"; tail -50 /tmp/web.log || true; exit 1
+
+      - run: npm run test:e2e
+        working-directory: ${{ env.WEB_DIR }}
+
+      - name: Show server logs
+        if: always()
+        continue-on-error: true
+        run: |
+          echo "=== /tmp/api.log (tail) ==="; tail -80 /tmp/api.log 2>/dev/null || echo "(no api log)"
+          echo "=== /tmp/web.log (tail) ==="; tail -80 /tmp/web.log 2>/dev/null || echo "(no web log)"
+
   # Single required status check for branch protection (see this file's
   # header comment) -- fails if anything it depends on failed or was
   # skipped, succeeds otherwise. `if: always()` so it still runs (and
@@ -225,7 +398,7 @@ jobs:
   # and GitHub would otherwise skip everything downstream by default.
   ci-gate:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, import-boundaries, unit-tests, integration-tests, security-scan]
+    needs: [lint, typecheck, import-boundaries, unit-tests, integration-tests, security-scan, frontend-lint, frontend-typecheck, frontend-test, e2e-tests]
     if: always()
     steps:
       - name: Fail if any required job failed
