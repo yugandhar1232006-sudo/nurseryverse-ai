@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
-    setupFiles: ["./test/setup.ts"],
+    setupFiles: ["./test/setup-localstorage.ts", "./test/setup.ts"],
     globals: false,
     css: false,
     exclude: ["node_modules", ".next", "e2e/**"],
