@@ -11,20 +11,16 @@
 # (removes docker-compose.yml's dev-only bind mounts / host port
 # publishes / `build:` / `command:` overrides entirely, rather than
 # Compose's default list-concatenation merge behavior, which would
-# otherwise leave them in place alongside this file's replacements). NOT
-# independently run-verified against a real Compose binary in this
-# sandbox -- see docker-compose.yml's own header comment for why.
-#
-# Same SCOPE NOTE as docker-compose.yml: no `web` service (Phase 7 not
-# built yet).
+# otherwise leave them in place alongside this file's replacements).
 #
 # Images are referenced by tag (`${API_IMAGE_TAG}` etc.), built and pushed
-# by Task #162's GitHub Actions pipeline -- this file never runs `docker
-# build` itself, per the architecture doc's "rather than building in
-# place" above. Secrets (POSTGRES_PASSWORD, JWT_PRIVATE_KEY/PUBLIC_KEY,
-# ANTHROPIC_API_KEY, etc.) must come from the deployment platform's own
-# secret store / a `.env` that is itself never committed -- this file only
-# ever references them by `${VAR}` substitution, never inlines a value.
+# by the GitHub Actions pipeline (see .github/workflows/ci.yml) -- this
+# file never runs `docker build` itself, per the architecture doc's
+# "rather than building in place" above. Secrets (POSTGRES_PASSWORD,
+# JWT_PRIVATE_KEY/PUBLIC_KEY, ANTHROPIC_API_KEY, etc.) must come from the
+# deployment platform's own secret store / a `.env` that is itself never
+# committed -- this file only ever references them by `${VAR}`
+# substitution, never inlines a value.
 
 name: nurseryverse
 
@@ -109,6 +105,25 @@ services:
         limits:
           cpus: "0.5"
           memory: 512M
+
+  web:
+    build: !override null
+    image: ${WEB_IMAGE_TAG:?WEB_IMAGE_TAG must be set, e.g. ghcr.io/org/nurseryverse-web:1.4.2}
+    # No environment override: the production image has its origin baked
+    # at build time (NEXT_PUBLIC_API_BASE_URL, see web.Dockerfile's
+    # header) -- it never reads the dev compose's NEXT_PUBLIC_API_BASE_URL.
+    environment: !override {}
+    volumes: !override []  # no bind mounts / named dev volumes -- the built image is the deployable artifact
+    ports: !override []  # only nginx is reachable from outside the Compose network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
 
   nginx:
     restart: unless-stopped

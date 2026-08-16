@@ -1,25 +1,27 @@
-# Phase 6 Module 14 (Production Readiness) -- local development stack.
-# docs/architecture/09-infrastructure.md §2: "docker-compose.yml (local
-# development -- bind-mounts source for hot reload, exposes debug ports,
-# uses a local .env)... Service list matches 01-high-level-architecture.md
-# §7: nginx, web, api, worker, beat, postgres, redis."
+# Phase 6 Module 14 (Production Readiness) + Phase 7 (Frontend) -- local
+# development stack. docs/architecture/09-infrastructure.md §2:
+# "docker-compose.yml (local development -- bind-mounts source for hot
+# reload, exposes debug ports, uses a local .env)... Service list matches
+# 01-high-level-architecture.md §7: nginx, web, api, worker, beat, postgres,
+# redis." -- all seven services are present below.
 #
-# SCOPE NOTE (disclosed deviation, not a silent one): the `web` service
-# (Next.js) is omitted here. Phase 7 (Frontend) has not been built in this
-# engagement yet -- there is no Next.js app under apps/ to build an image
-# from. `nginx` below proxies `/api/*` and `/ws/*` to `api` only; a request
-# to `/` will 502 until Phase 7 adds a `web` service and nginx.conf is
-# extended to route to it (Task #161's nginx.conf carries the same
-# disclosure inline). Every other documented service is present.
+# The `web` dev service (Next.js) builds only the web.Dockerfile `deps`
+# stage (full node_modules, dev toolchain), bind-mounts `./apps/web` for
+# hot reload, and runs `next dev` -- the production multi-stage `runner`
+# image (output: 'standalone') is what docker-compose.prod.yml + CI build,
+# not this dev override. `web_node_modules`/`web_next` named volumes shadow
+# the host's node_modules/.next so the container's `npm ci` and `next dev`
+# (which run as root in the deps stage) never clobber the host's
+# macOS-built install with linux binaries or root-owned .next output.
+# Dev API calls default to `http://localhost:8000` (the api service's
+# published debug port; CORS_ALLOWED_ORIGINS below already allows
+# localhost:3000), matching the pre-Phase-7 local workflow -- the
+# same-origin-through-nginx model is a build-time concern for the
+# production image (see infra/docker/web.Dockerfile's header).
 #
 # Usage: `docker compose up --build` from this directory. Requires a
 # `.env` file alongside this one -- see `.env.example` for every variable
 # referenced below.
-#
-# NOT independently run-verified: this development sandbox has no `docker`
-# binary (disclosed in docs/architecture/30-module14-production-readiness.md).
-# Validated here via `docker compose config` YAML-parse-equivalent manual
-# review only.
 
 name: nurseryverse
 
@@ -34,6 +36,17 @@ x-worker-image: &worker-image
     context: ./apps/api
     dockerfile: infra/docker/worker.Dockerfile
   image: nurseryverse-worker:dev
+
+x-web-image: &web-image
+  build:
+    context: ./apps/web
+    dockerfile: infra/docker/web.Dockerfile
+    # Dev-only: target just the `deps` stage, whose /app/node_modules is
+    # the full `npm ci` install (all devDependencies + the `next` CLI).
+    # The production image (full multi-stage build, standalone `runner`)
+    # is what docker-compose.prod.yml and CI build instead.
+    target: deps
+  image: nurseryverse-web:dev
 
 x-app-env: &app-env
   APP_ENV: development
@@ -172,6 +185,40 @@ services:
         condition: service_healthy
     networks: [nurseryverse]
 
+  web:
+    <<: *web-image
+    command: sh -c "npm ci && npm run dev -- -H 0.0.0.0"
+    environment:
+      # Dev default: point the browser's API calls straight at the api
+      # service's published debug port (see file header). Override to "" /
+      # a custom origin as needed; the production image bakes its own value
+      # at build time and never reads this.
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    # ./apps/web full bind mount for hot reload; named volumes shadow the
+    # host's node_modules (platform-specific darwin bindings must not leak
+    # into a linux container, and vice versa) and .next (next dev writes it
+    # as root in the deps stage -- keep it off the host's checkout).
+    volumes:
+      - ./apps/web:/app
+      - web_node_modules:/app/node_modules
+      - web_next:/app/.next
+    ports:
+      - "3000:3000"  # dev convenience: direct access without going through nginx
+    depends_on:
+      api:
+        condition: service_healthy
+    # web.Dockerfile's own HEALTHCHECK lives in its `runner` stage, which
+    # this dev override doesn't build (target: deps) -- declared here so
+    # nginx's `depends_on: web: service_healthy` (§10) still resolves.
+    # busybox wget ships with the node:26-alpine deps stage.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [nurseryverse]
+
   nginx:
     image: nginx:1.27-alpine
     volumes:
@@ -182,6 +229,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      web:
+        condition: service_healthy
     networks: [nurseryverse]
 
 networks:
@@ -191,3 +240,5 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  web_node_modules:
+  web_next:
