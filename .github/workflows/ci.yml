@@ -407,12 +407,10 @@ jobs:
           echo "One or more required CI jobs failed -- see the jobs above."
           exit 1
 
-  # --- Diagram nodes J/K: Build images (api, worker), push to registry ---
-  # SCOPE NOTE (disclosed): no `web` image build -- Phase 7 (Frontend)
-  # hasn't been built in this engagement, matching docker-compose.yml's
-  # own disclosed scope. Only runs on an actual push to `main` or a
-  # `v*.*.*` release tag (diagram node H: "main merge" branch of the
-  # PR/main-merge fork), never on a pull request.
+  # --- Diagram nodes J/K: Build images (web, api, worker), push to
+  # registry --- Only runs on an actual push to `main` or a `v*.*.*`
+  # release tag (diagram node H: "main merge" branch of the PR/main-merge
+  # fork), never on a pull request.
   build-and-push:
     runs-on: ubuntu-latest
     needs: ci-gate
@@ -423,6 +421,7 @@ jobs:
     outputs:
       api_image: ${{ steps.meta-api.outputs.tags }}
       worker_image: ${{ steps.meta-worker.outputs.tags }}
+      web_image: ${{ steps.meta-web.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -455,6 +454,15 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - uses: docker/metadata-action@v5
+        id: meta-web
+        with:
+          images: ghcr.io/${{ github.repository }}-web
+          tags: |
+            type=sha,format=long
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - uses: docker/build-push-action@v6
         with:
           context: ${{ env.WORKING_DIR }}
@@ -474,6 +482,23 @@ jobs:
           labels: ${{ steps.meta-worker.outputs.labels }}
           cache-from: type=gha,scope=worker
           cache-to: type=gha,mode=max,scope=worker
+
+      # Web (Next.js standalone) image. NEXT_PUBLIC_API_BASE_URL stays at
+      # its "" same-origin default (see web.Dockerfile's header) -- one
+      # immutable image works for staging and production, per 10-devops.md
+      # §7's "the same images run in all three environments, never an
+      # environment-specific build".
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.WEB_DIR }}
+          file: ${{ env.WEB_DIR }}/infra/docker/web.Dockerfile
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
 
   # --- Diagram node L: Alembic migration dry-run against a throwaway DB ---
   # Distinct from integration-tests' own `alembic upgrade head` above:
@@ -540,4 +565,5 @@ jobs:
           echo "Deploy step not yet implemented -- no production hosting target is connected in this engagement."
           echo "api image:    ${{ needs.build-and-push.outputs.api_image }}"
           echo "worker image: ${{ needs.build-and-push.outputs.worker_image }}"
-          echo "Real deployment: point docker-compose.prod.yml's API_IMAGE_TAG/WORKER_IMAGE_TAG at the tags above on the target host and run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d"
+          echo "web image:    ${{ needs.build-and-push.outputs.web_image }}"
+          echo "Real deployment: point docker-compose.prod.yml's API_IMAGE_TAG/WORKER_IMAGE_TAG/WEB_IMAGE_TAG at the tags above on the target host and run: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d"
