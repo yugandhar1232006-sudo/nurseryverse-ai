@@ -120,5 +120,5 @@ export async function requestEmailVerification(): Promise<MessageResponse> {
 }
 
 export async function confirmEmailVerification(token: string): Promise<MessageResponse> {
-  return unwrap(() => apiClient.POST("/api/v1/auth/verify-email/confirm", { body: { token } }));
+  return unwrapOnce(() => apiClient.POST("/api/v1/auth/verify-email/confirm", { body: { token } }));
 }

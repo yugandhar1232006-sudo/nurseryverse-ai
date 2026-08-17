@@ -165,6 +165,17 @@ test.describe("Application Shell (real backend)", () => {
   test.describe("mobile viewport", () => {
     test.use({ viewport: { width: 390, height: 844 } });
 
+    test.beforeEach(async ({ page }) => {
+      // Hide the TanStack Query DevTools overlay that intercepts pointer
+      // events on mobile viewports.  addInitScript runs before any page
+      // scripts, so the rule is in effect from the very first navigation.
+      await page.addInitScript(() => {
+        const style = document.createElement("style");
+        style.textContent = ".tsqd-parent-container { display: none !important; }";
+        document.addEventListener("DOMContentLoaded", () => document.head.appendChild(style));
+      });
+    });
+
     test("shows the bottom tab bar instead of the desktop sidebar, and the More sheet reaches the rest of nav", async ({
       page,
       request,

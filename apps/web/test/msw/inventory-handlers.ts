@@ -5,7 +5,6 @@ import {
   makeInventoryLocation,
   makeInventoryPage,
   makeInventorySummary,
-  makeStockMovement,
   makeStockMovementPage,
   makeStockReservation,
   makeStockReservationPage,
