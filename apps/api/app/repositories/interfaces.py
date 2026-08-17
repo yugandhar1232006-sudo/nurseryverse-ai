@@ -82,6 +82,20 @@ class UserRepository(Protocol):
     async def get_by_email(self, email: str) -> User | None: ...
     async def add(self, user: User) -> User: ...
 
+    async def commit(self) -> None:
+        """
+        Persists accumulated session state *before* the caller raises.
+
+        The request-level session (app/db/session.py's `get_db_session`)
+        rolls back on any exception, which is normally exactly right --
+        but `AuthService._register_failed_attempt` mutates
+        `failed_login_attempts`/`locked_until` and then lets `login()`
+        raise the (deliberately generic) wrong-password error. Without an
+        explicit commit here that counter would be rolled back with the
+        error, so the lockout threshold could never actually be reached.
+        """
+        ...
+
     # --- Added by Phase 6 Module 13 (Administration & System Management,
     # "User Administration") ---
     async def list_for_ids(self, user_ids: list[uuid.UUID]) -> list[User]:
@@ -1478,6 +1492,12 @@ class ReportRepository(Protocol):
         file_url: str | None = None,
         completed_at: datetime | None = None,
     ) -> None: ...
+    async def commit(self) -> None:
+        """Persist the session's pending writes. Background-task callers
+        (report generation) run after the request's own session teardown
+        has already committed+closed, so they must commit explicitly --
+        same pattern as `UserRepository.commit`."""
+        ...
 
 
 class ScheduledReportRepository(Protocol):

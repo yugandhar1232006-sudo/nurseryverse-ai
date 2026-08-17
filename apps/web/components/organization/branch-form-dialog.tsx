@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useApiFormErrors } from "@/lib/forms/use-api-form-errors";
 import { useCreateBranchMutation, useUpdateBranchMutation } from "@/lib/organization/mutations";
-import { branchSchema, WEEKDAYS, type BranchFormValues } from "@/lib/validation/organization";
+import { branchSchema, WEEKDAYS, WEEKDAY_LABELS, type BranchFormValues } from "@/lib/validation/organization";
 import type { BranchResponse, OperatingHoursWindow } from "@/lib/api/branches";
 
 function defaultHours(existing: BranchResponse["operating_hours"]): BranchFormValues["hours"] {
@@ -260,7 +260,7 @@ export function BranchFormDialog({
               <legend className="px-1 text-body-sm font-medium">Operating hours</legend>
               {WEEKDAYS.map((day) => (
                 <div key={day} className="flex flex-wrap items-center gap-3">
-                  <span className="w-24 shrink-0 text-body-sm capitalize">{day}</span>
+                  <span className="w-24 shrink-0 text-body-sm capitalize">{WEEKDAY_LABELS[day]}</span>
                   <FormField
                     control={form.control}
                     name={`hours.${day}.closed`}

@@ -47,7 +47,14 @@ export function useCreateOrganizationMutation() {
   return useMutation({
     mutationFn: orgsApi.createOrganization,
     onSuccess: async () => {
-      const me = await queryClient.fetchQuery({ queryKey: authKeys.me(), queryFn: getMe });
+      // `staleTime: 0` is essential, not optional: the QueryClient's global
+      // `staleTime: 30_000` (providers/query-provider.tsx) makes the me
+      // record primed at login "fresh" for 30s, so a plain fetchQuery
+      // returns that pre-org snapshot (org_id: null, permissions: [])
+      // without touching the network -- leaving the user stuck on this
+      // onboarding form. Forcing staleness guarantees a real GET /auth/me
+      // reflecting the new org_id + Owner role.
+      const me = await queryClient.fetchQuery({ queryKey: authKeys.me(), queryFn: getMe, staleTime: 0 });
       useSessionStore.getState().setUser(me);
       toast.success("Organization created");
     },

@@ -57,14 +57,19 @@ test.describe("Administration (real backend, 7O)", () => {
     await expect(page.getByText("Active")).toBeVisible();
 
     await page.getByRole("tab", { name: "Roles & Permissions" }).click();
-    await page.getByText("Owner").click();
+    // The role row (Role name "Org Owner") -- not `getByText("Owner")`,
+    // which would strict-mode-fail against the org name "admin-owner
+    // Nursery", the "Org Owner" role-name cell, and the "owner" code cell.
+    await page.getByRole("row", { name: /Org Owner/ }).click();
     await expect(page.getByText("employees:read")).toBeVisible();
 
     await page.getByRole("tab", { name: "Feature Flags" }).click();
     // Real seeded default flags may or may not exist for a brand-new org --
     // either the real list or the real empty state is a valid outcome, so
     // this only asserts the panel itself rendered without erroring.
-    await expect(page.getByText("Feature Flags")).toBeVisible();
+    // Feature Flags appears as both the tab trigger and the panel's card
+    // title once the tab is active, so scope to the tab.
+    await expect(page.getByRole("tab", { name: "Feature Flags" })).toBeVisible();
   });
 
   test("locks and unlocks a real account through the dialog, and sees the honest System-tab fallback as an Owner", async ({
@@ -80,11 +85,13 @@ test.describe("Administration (real backend, 7O)", () => {
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel(/Duration/).fill("60");
     await dialog.getByRole("button", { name: "Lock account" }).click();
-    await expect(page.getByText("Locked")).toBeVisible();
+    // Exact match: the "Account locked" confirmation dialog title also
+    // contains the word "Locked".
+    await expect(page.getByText("Locked", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: /Actions for/ }).click();
     await page.getByRole("menuitem", { name: "Unlock account" }).click();
-    await expect(page.getByText("Locked")).not.toBeVisible();
+    await expect(page.getByText("Locked", { exact: true })).not.toBeVisible();
 
     // A real Owner account genuinely lacks `admin:read` (platform_admin-
     // only, per migrations/0002_seed_system_metadata.py) -- this fallback

@@ -83,12 +83,17 @@ depends_on: Sequence[str] | None = None
 
 def upgrade() -> None:
     # --- nurseries: lifecycle status ---
+    # `nursery_status` is a brand-new Postgres ENUM type. Alembic's
+    # op.add_column() only references the type by name, so it must be
+    # created explicitly before the column is added.
+    nursery_status = sa.Enum("ACTIVE", "ARCHIVED", name="nursery_status")
+    nursery_status.create(op.get_bind(), checkfirst=True)
     op.add_column(
         "nurseries",
         sa.Column(
             "status",
-            sa.Enum("ACTIVE", "ARCHIVED", name="nursery_status"),
-            server_default="active",
+            nursery_status,
+            server_default=sa.text("'ACTIVE'"),
             nullable=False,
         ),
     )

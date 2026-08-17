@@ -98,6 +98,14 @@ COPY --chown=app:app app ./app
 COPY --chown=app:app migrations ./migrations
 COPY --chown=app:app alembic.ini ./alembic.ini
 
+# `LocalFileStorage` (app/reporting/file_storage.py) writes generated report
+# artifacts to `REPORTS_LOCAL_STORAGE_PATH` (default `var/reports`, relative
+# to WORKDIR /app). `/app` itself is root-owned (created by the WORKDIR
+# directive / base image), so the non-root `app` user couldn't create `var/`
+# at runtime -- report generation would fail with a PermissionError. Pre-
+# create and hand over the directory here instead.
+RUN mkdir -p var/reports && chown -R app:app var
+
 USER app
 
 EXPOSE 8000

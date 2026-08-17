@@ -67,6 +67,26 @@ x-app-env: &app-env
   # module's own docstring). Production MUST set these -- enforced by
   # that same function raising RuntimeError, not by anything in this file.
   CORS_ALLOWED_ORIGINS: '["http://localhost:3000"]'
+  # The 50-test Playwright e2e suite self-provisions a unique account per
+  # test (~40+ signups per run); the production-safe default of 10 signups
+  # per hour would block it. Dev/CI only -- production must set a low value.
+  AUTH_SIGNUP_RATE_LIMIT_PER_HOUR: ${AUTH_SIGNUP_RATE_LIMIT_PER_HOUR:-1000}
+  # Same story for logins: the serial suite performs ~50 real logins per
+  # run from one IP, all inside the 1-per-minute window. Production keeps
+  # the safe default of 10/min; dev/CI raise it.
+  AUTH_LOGIN_RATE_LIMIT_PER_MINUTE: ${AUTH_LOGIN_RATE_LIMIT_PER_MINUTE:-1000}
+  # And for password-reset requests: the suite's anti-enumeration test hits
+  # this endpoint once per run from the same IP, which would exhaust the
+  # production-safe 5/hour default across repeated runs. Production keeps
+  # the safe default; dev/CI raise it.
+  AUTH_PASSWORD_RESET_RATE_LIMIT_PER_HOUR: ${AUTH_PASSWORD_RESET_RATE_LIMIT_PER_HOUR:-1000}
+  # Run the auth stack in cookie mode (httpOnly nv_refresh_token + CSRF
+  # double-submit), the mode the e2e suite and the production deployment
+  # assume -- bearer mode (the backend default) deliberately drops the
+  # session on a hard page reload, which the suite's page.goto()-based
+  # flows require to persist. Both apps fully support it (see
+  # apps/web/lib/auth/session-boot.ts and apps/api/app/api/routes/auth.py).
+  AUTH_USE_REFRESH_COOKIE: ${AUTH_USE_REFRESH_COOKIE:-true}
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
   CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}

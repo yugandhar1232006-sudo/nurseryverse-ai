@@ -17,18 +17,24 @@ function signInWith(permissions: string[]) {
 
 describe("MobileTabBar", () => {
   it("renders only the permission-permitted subset of the fixed 4-item mobile set", () => {
-    signInWith(["plants:read"]);
+    signInWith(["plants:read", "notifications:read"]);
     render(<MobileTabBar />);
 
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Plants" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Watering" })).not.toBeInTheDocument(); // no watering:read
-    expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument(); // never gated
+    expect(screen.getByRole("button", { name: "Notifications" })).toBeInTheDocument(); // notifications:read held
+  });
+
+  it("hides the Alerts tab for a user without notifications:read (role-less signup)", () => {
+    signInWith([]);
+    render(<MobileTabBar />);
+    expect(screen.queryByRole("button", { name: "Notifications" })).not.toBeInTheDocument();
   });
 
   it("opens the shared notification center panel (not a second notification UI) when Alerts is tapped", async () => {
     const user = userEvent.setup();
-    signInWith([]);
+    signInWith(["notifications:read"]);
     render(<MobileTabBar />);
 
     expect(useUiStore.getState().notificationCenterOpen).toBe(false);

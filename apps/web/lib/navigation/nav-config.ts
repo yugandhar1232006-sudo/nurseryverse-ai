@@ -180,5 +180,5 @@ export const MOBILE_TAB_ITEMS: MobileTabItem[] = [
   { id: "dashboard", label: "Dashboard", href: "/", icon: LayoutDashboard },
   { id: "plants", label: "Plants", href: "/plants", icon: Leaf, permission: "plants:read" },
   { id: "watering", label: "Watering", href: "/watering", icon: Droplets, permission: "watering:read" },
-  { id: "notifications", label: "Alerts", icon: Bell, isNotifications: true },
+  { id: "notifications", label: "Alerts", icon: Bell, isNotifications: true, permission: "notifications:read" },
 ];

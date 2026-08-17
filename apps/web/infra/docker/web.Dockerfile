@@ -65,10 +65,11 @@ ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0
 
 # curl: used by the HEALTHCHECK below (alpine ships no curl by default).
-# Non-root user with the same uid/gid convention as the api/worker images.
-RUN apk add --no-cache curl \
-    && addgroup -S -g 1000 app \
-    && adduser -S -u 1000 -G app app
+# Non-root user: `node:26-alpine` already ships a `node` user at
+# uid/gid 1000 -- the same uid/gid convention the api/worker images create
+# their own `app` user with (that image's base has no uid-1000 user; this
+# base already does, so it is used as-is rather than shadowed).
+RUN apk add --no-cache curl
 
 # Only the compiled standalone server, not the full node_modules/dev
 # toolchain -- per the architecture doc's §1 quote in the header. The
@@ -81,9 +82,9 @@ COPY --from=builder /app/.next/static ./.next/static
 # public/ (favicon, etc.) served at the site root.
 COPY --from=builder /app/public ./public
 
-RUN chown -R app:app /app
+RUN chown -R node:node /app
 
-USER app
+USER node
 
 EXPOSE 3000
 

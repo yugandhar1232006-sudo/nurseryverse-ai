@@ -68,21 +68,26 @@ def _direct_tenant_policy(table: str) -> str:
 
 def upgrade() -> None:
     # --- new enums ---
+    # These are NOT created explicitly here: each is used as a column type
+    # in exactly one op.create_table() below, which auto-creates the type
+    # (without checkfirst). An explicit `.create()` here would emit CREATE
+    # TYPE twice and fail.
     location_type = sa.Enum(
         "ZONE", "GREENHOUSE", "OUTDOOR_AREA", "RACK", "BENCH", "SECTION", name="inventory_location_type"
     )
-    location_type.create(op.get_bind(), checkfirst=True)
 
     movement_type = sa.Enum(
         "INCOMING", "OUTGOING", "TRANSFER", "ADJUSTMENT", "WASTE", "DAMAGE",
         "RESERVATION", "RELEASE", "SALE", "ARCHIVE", name="stock_movement_type",
     )
+    # movement_type is added to the pre-existing `stock_movements` table via
+    # op.add_column() below (NOT a create_table), so it must be created
+    # explicitly here.
     movement_type.create(op.get_bind(), checkfirst=True)
 
     reservation_status = sa.Enum(
         "ACTIVE", "RELEASED", "FULFILLED", "EXPIRED", name="stock_reservation_status"
     )
-    reservation_status.create(op.get_bind(), checkfirst=True)
 
     op.execute("ALTER TYPE inventory_adjustment_reason ADD VALUE IF NOT EXISTS 'RETURN'")
 
@@ -238,10 +243,24 @@ def upgrade() -> None:
         "ALTER TABLE stock_movements RENAME CONSTRAINT "
         "fk_inventory_adjustments_adjusted_by_user_id_users TO fk_stock_movements_performed_by_user_id_users"
     )
+    # The purchase_order FK was created in 0001 with a 66-char name
+    # (fk_inventory_adjustments_reference_purchase_order_id_purchase_orders).
+    # Postgres truncates over-long constraint names to 63 chars as
+    # "<58 chars>_<4-hex-hash>", so its real stored name is
+    # fk_inventory_adjustments_reference_purchase_order_id_pu_cc7c. The
+    # intended rename target would ALSO exceed 63 chars, so RENAME can never
+    # match. Drop it and re-create with a valid short name instead.
     op.execute(
-        "ALTER TABLE stock_movements RENAME CONSTRAINT "
-        "fk_inventory_adjustments_reference_purchase_order_id_purchase_orders "
-        "TO fk_stock_movements_reference_purchase_order_id_purchase_orders"
+        "ALTER TABLE stock_movements DROP CONSTRAINT "
+        "fk_inventory_adjustments_reference_purchase_order_id_pu_cc7c"
+    )
+    op.create_foreign_key(
+        op.f("fk_stock_movements_reference_purchase_order_id"),
+        "stock_movements",
+        "purchase_orders",
+        ["reference_purchase_order_id"],
+        ["id"],
+        ondelete="SET NULL",
     )
     op.execute(
         "ALTER TABLE stock_movements RENAME CONSTRAINT "
@@ -317,9 +336,12 @@ def downgrade() -> None:
         "fk_stock_movements_reference_sale_id_sales TO fk_inventory_adjustments_reference_sale_id_sales"
     )
     op.execute(
-        "ALTER TABLE stock_movements RENAME CONSTRAINT "
-        "fk_stock_movements_reference_purchase_order_id_purchase_orders "
-        "TO fk_inventory_adjustments_reference_purchase_order_id_purchase_orders"
+        "ALTER TABLE stock_movements DROP CONSTRAINT fk_stock_movements_reference_purchase_order_id"
+    )
+    op.execute(
+        "ALTER TABLE stock_movements ADD CONSTRAINT "
+        "fk_inventory_adjustments_reference_purchase_order_id_purchase_orders "
+        "FOREIGN KEY (reference_purchase_order_id) REFERENCES purchase_orders (id) ON DELETE SET NULL"
     )
     op.execute(
         "ALTER TABLE stock_movements RENAME CONSTRAINT "

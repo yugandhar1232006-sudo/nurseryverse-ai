@@ -120,6 +120,12 @@ Font family token: `font-sans` = Inter, system-ui fallback stack.
 | `z-toast` | 50 | Toast notifications |
 | `z-tooltip` | 60 | Tooltips (must always render above modals) |
 
+Nesting note: floating popovers/menus that portal to `<body>` and can open
+*inside* a modal (`Select`, `Popover`, `DropdownMenu`) use `z-overlay` (40),
+not `z-dropdown` (20) — at 20 they'd sit below the modal's `z-overlay-scrim`
+(30), which would intercept every click on them. They tie the modal content
+at 40 and win on DOM order (their portal mounts after the dialog's).
+
 ## Spacing Tokens
 
 | Token | Value |

@@ -45,21 +45,21 @@ def upgrade() -> None:
         WITH revenue_today AS (
             SELECT branch_id, COALESCE(SUM(total_amount), 0) AS revenue_today
             FROM sales
-            WHERE status = 'completed'
+            WHERE status = 'COMPLETED'
               AND created_at >= date_trunc('day', now())
             GROUP BY branch_id
         ),
         revenue_mtd AS (
             SELECT branch_id, COALESCE(SUM(total_amount), 0) AS revenue_mtd
             FROM sales
-            WHERE status = 'completed'
+            WHERE status = 'COMPLETED'
               AND created_at >= date_trunc('month', now())
             GROUP BY branch_id
         ),
         latest_survival_prediction AS (
             SELECT DISTINCT ON (plant_id) plant_id, branch_id, result, confidence
             FROM ai_predictions
-            WHERE prediction_type = 'survival_prediction' AND plant_id IS NOT NULL
+            WHERE prediction_type = 'SURVIVAL_PREDICTION' AND plant_id IS NOT NULL
             ORDER BY plant_id, created_at DESC
         ),
         at_risk_counts AS (
@@ -78,7 +78,7 @@ def upgrade() -> None:
             SELECT p.branch_id, COUNT(*) AS pending_disease_reports
             FROM disease_reports dr
             JOIN plants p ON p.id = dr.plant_id
-            WHERE dr.status IN ('draft', 'confirmed')
+            WHERE dr.status IN ('DRAFT', 'CONFIRMED')
             GROUP BY p.branch_id
         )
         SELECT
@@ -96,7 +96,7 @@ def upgrade() -> None:
         LEFT JOIN at_risk_counts ar ON ar.branch_id = b.id
         LEFT JOIN low_stock ls ON ls.branch_id = b.id
         LEFT JOIN pending_disease pd ON pd.branch_id = b.id
-        WHERE b.status = 'active';
+        WHERE b.status = 'ACTIVE';
         """
     )
     # A unique index is required for CONCURRENTLY refresh (Postgres
@@ -119,7 +119,7 @@ def upgrade() -> None:
         FROM sales s
         JOIN branches b ON b.id = s.branch_id
         JOIN nurseries n ON n.id = b.nursery_id
-        WHERE s.status = 'completed'
+        WHERE s.status = 'COMPLETED'
         GROUP BY n.id, date_trunc('day', s.created_at);
         """
     )

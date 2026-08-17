@@ -75,7 +75,7 @@ def upgrade() -> None:
         """
     )
     op.execute(
-        "SELECT setval('domain_events_sequence_seq', COALESCE((SELECT MAX(sequence) FROM domain_events), 0));"
+        "SELECT setval('domain_events_sequence_seq', COALESCE((SELECT MAX(sequence) FROM domain_events), 0) + 1, false);"
     )
     op.alter_column("domain_events", "sequence", nullable=False)
     op.create_index(
@@ -117,8 +117,10 @@ def upgrade() -> None:
     )
 
     # --- event_dispatch_status enum ---
+    # Do NOT create the type explicitly here: alembic's op.create_table
+    # below (event_dispatch_log) auto-creates it (without checkfirst),
+    # so an explicit `.create()` would emit CREATE TYPE twice and fail.
     event_dispatch_status = sa.Enum("SUCCEEDED", "FAILED", name="event_dispatch_status")
-    event_dispatch_status.create(op.get_bind(), checkfirst=True)
 
     # --- digital_twins: current projection, one row per Plant ---
     op.create_table(

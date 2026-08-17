@@ -90,36 +90,29 @@ JOIN_TENANT_TABLES = [
 
 def upgrade() -> None:
     # --- new enums ---
+    # None are created explicitly: each is used as a column type in exactly
+    # one op.create_table() below, which auto-creates the type (without
+    # checkfirst). An explicit `.create()` here would emit CREATE TYPE twice.
     customer_address_type = sa.Enum("BILLING", "SHIPPING", "OTHER", name="customer_address_type")
-    customer_address_type.create(op.get_bind(), checkfirst=True)
     communication_channel = sa.Enum(
         "EMAIL", "PHONE", "SMS", "IN_PERSON", "OTHER", name="communication_channel"
     )
-    communication_channel.create(op.get_bind(), checkfirst=True)
     communication_direction = sa.Enum("INBOUND", "OUTBOUND", name="communication_direction")
-    communication_direction.create(op.get_bind(), checkfirst=True)
     quotation_status = sa.Enum(
         "DRAFT", "SENT", "ACCEPTED", "REJECTED", "EXPIRED", "CONVERTED", name="quotation_status"
     )
-    quotation_status.create(op.get_bind(), checkfirst=True)
     sales_order_status = sa.Enum(
         "DRAFT", "CONFIRMED", "PROCESSING", "FULFILLED", "CANCELLED", name="sales_order_status"
     )
-    sales_order_status.create(op.get_bind(), checkfirst=True)
     order_payment_status = sa.Enum(
         "UNPAID", "PARTIALLY_PAID", "PAID", "REFUNDED", name="order_payment_status"
     )
-    order_payment_status.create(op.get_bind(), checkfirst=True)
     payment_method = sa.Enum("CASH", "UPI", "CARD", "BANK_TRANSFER", "OTHER", name="payment_method")
-    payment_method.create(op.get_bind(), checkfirst=True)
     return_status = sa.Enum("REQUESTED", "APPROVED", "REJECTED", "COMPLETED", name="return_status")
-    return_status.create(op.get_bind(), checkfirst=True)
     return_item_condition = sa.Enum(
         "RESALABLE", "DAMAGED", "DISPOSED", name="return_item_condition"
     )
-    return_item_condition.create(op.get_bind(), checkfirst=True)
     refund_status = sa.Enum("PENDING", "COMPLETED", "FAILED", name="refund_status")
-    refund_status.create(op.get_bind(), checkfirst=True)
 
     # --- sales / invoices: tax + frozen snapshot columns ---
     op.add_column("sales", sa.Column("tax_amount", sa.Numeric(10, 2), server_default="0", nullable=False))

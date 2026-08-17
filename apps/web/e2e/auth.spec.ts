@@ -104,7 +104,10 @@ test.describe("Authentication (real backend)", () => {
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page).toHaveURL("/account");
-    await expect(page.getByText("Your account")).toBeVisible();
+    // Exact match: without it, `getByText("Your account")` also matches the
+    // verify-email banner ("Please verify your email address to secure your
+    // account…") and the card description, tripping strict mode.
+    await expect(page.getByText("Your account", { exact: true })).toBeVisible();
   });
 
   test("signing out clears the session and protected routes require signing in again", async ({ page, request }) => {
@@ -153,6 +156,10 @@ test.describe("Authentication (real backend)", () => {
     await page.getByLabel("Password").fill(WRONG_PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
 
+    // Real backend copy: "Account is temporarily locked due to repeated
+    // failed login attempts. Try again later or reset your password."
+    // Both the alert title and description match /temporarily locked/i, so
+    // scope to the exact title to keep the locator strict-mode-clean.
     await expect(page.getByText("Account temporarily locked")).toBeVisible();
 
     // Confirms the lockout is real (server-enforced), not just a

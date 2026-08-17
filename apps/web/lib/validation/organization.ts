@@ -76,7 +76,22 @@ export const branchSchema = z.object({
 });
 export type BranchFormValues = z.infer<typeof branchSchema>;
 
-export const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+// Wire format for `operating_hours` keys is the API/DB's abbreviated
+// `mon..sun` (app/api/app/services/validation.py's `_OPERATING_HOURS_DAYS`,
+// app/api/app/models/organization.py's `operating_hours` docstring) -- the
+// form UI displays the friendly full names via `WEEKDAY_LABELS`, but the
+// payload and the values loaded back from a stored branch use these keys.
+export const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+export const WEEKDAY_LABELS: Record<(typeof WEEKDAYS)[number], string> = {
+  mon: "Monday",
+  tue: "Tuesday",
+  wed: "Wednesday",
+  thu: "Thursday",
+  fri: "Friday",
+  sat: "Saturday",
+  sun: "Sunday",
+};
 
 // `branch_ids` deliberately has no `.default([])` -- both callers always
 // supply `branch_ids: []` in `defaultValues`, so the schema's input and

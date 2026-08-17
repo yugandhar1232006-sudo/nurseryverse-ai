@@ -58,7 +58,7 @@ async function signUpLogInAndRegisterAPlant(page: Page, request: APIRequestConte
   await branchDialog.getByLabel(/Country/).fill("US");
   await branchDialog.getByLabel(/Timezone/).fill("America/Los_Angeles");
   await branchDialog.getByRole("button", { name: "Create branch" }).click();
-  await expect(page.getByText("E2E Twin Branch")).toBeVisible();
+  await expect(page.getByRole("row", { name: /E2E Twin Branch/ })).toBeVisible();
 
   await page.goto("/plants/species");
   await page.getByRole("button", { name: "Add species" }).click();

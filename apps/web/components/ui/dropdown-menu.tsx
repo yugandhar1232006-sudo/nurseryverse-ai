@@ -41,7 +41,11 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          "z-dropdown min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 " +
+          // z-overlay (not z-dropdown): the content portals to <body>, and
+          // when a menu is opened inside an open Dialog it must stack
+          // above that dialog's scrim (z-overlay-scrim) or the scrim
+          // intercepts every click on a menu item. See select.tsx's note.
+          "z-overlay min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 " +
             "text-popover-foreground shadow-raised data-[state=open]:animate-in data-[state=closed]:animate-out " +
             "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 " +
             "data-[state=open]:zoom-in-95",
@@ -197,7 +201,7 @@ function DropdownMenuSubContent({ className, ...props }: React.ComponentProps<ty
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        "z-dropdown min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 " +
+        "z-overlay min-w-[8rem] overflow-hidden rounded-md border border-border bg-popover p-1 " +
           "text-popover-foreground shadow-raised data-[state=open]:animate-in data-[state=closed]:animate-out " +
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 " +
           "data-[state=open]:zoom-in-95",

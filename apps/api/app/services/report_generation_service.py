@@ -160,6 +160,18 @@ class ReportGenerationService:
 
     async def generate(self, report: Report) -> None:
         try:
+            # BackgroundTasks run AFTER the request's session teardown has
+            # already committed + closed, so the `report` instance handed to
+            # us (attached during the request) is now DETACHED -- mutating
+            # it and calling `flush()` emits no SQL at all. Re-fetch it on
+            # the (auto-reopened) session so the object is tracked again,
+            # then commit explicitly after each write since no request-level
+            # commit will happen after us. Same pattern as the worker's
+            # `_run_due_scheduled_reports_async` and
+            # `UserRepository.commit` in auth_service.
+            fresh = await self._reports.get_by_id(report.id)
+            if fresh is not None:
+                report = fresh
             provider = self._providers.get(report.report_type)
             if provider is None:
                 raise ValueError(f"No data provider registered for report type {report.report_type!r}")
@@ -174,6 +186,7 @@ class ReportGenerationService:
             await self._reports.update_status(
                 report, status=ReportStatus.COMPLETE, file_url=file_url, completed_at=completed_at
             )
+            await self._reports.commit()
             await self._events.publish(
                 ReportGenerated(
                     aggregate_id=report.id,
@@ -188,6 +201,7 @@ class ReportGenerationService:
         except Exception as exc:  # noqa: BLE001 -- background-task boundary; a raise here is silently swallowed by the runner, so this must be the terminal handler
             logger.error("report_generation_failed", report_id=str(report.id), error=str(exc))
             await self._reports.update_status(report, status=ReportStatus.FAILED)
+            await self._reports.commit()
             await self._events.publish(
                 ReportFailed(
                     aggregate_id=report.id,

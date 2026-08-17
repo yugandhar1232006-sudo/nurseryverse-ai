@@ -321,6 +321,18 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       APP_ENV: test
       CORS_ALLOWED_ORIGINS: '["http://localhost:3000"]'
+      # The e2e suite self-provisions ~40+ unique accounts; the prod-safe
+      # default of 10 signups/hour would block it. CI-only override.
+      AUTH_SIGNUP_RATE_LIMIT_PER_HOUR: 1000
+      # Same for logins: the serial suite performs ~50 real logins per run
+      # from one IP. Prod-safe default is 10/min. CI-only override.
+      AUTH_LOGIN_RATE_LIMIT_PER_MINUTE: 1000
+      # Cookie-mode auth (httpOnly nv_refresh_token + CSRF double-submit):
+      # the suite's flows do real page.goto() navigations after login, which
+      # require the session to survive a hard reload -- bearer mode (the
+      # backend default) deliberately drops it. Both apps support cookie
+      # mode; the production deployment runs it.
+      AUTH_USE_REFRESH_COOKIE: "true"
       # Read by BOTH the `next build` step below (inlined into the client
       # bundle) and the Playwright specs' own direct API calls -- the
       # e2e/*.spec.ts files all default to this same value.

@@ -57,7 +57,7 @@ async function signUpLogInAndSetUpNursery(page: Page, request: APIRequestContext
   await branchDialog.getByLabel(/Country/).fill("US");
   await branchDialog.getByLabel(/Timezone/).fill("America/Los_Angeles");
   await branchDialog.getByRole("button", { name: "Create branch" }).click();
-  await expect(page.getByText("E2E Main Branch")).toBeVisible();
+  await expect(page.getByRole("row", { name: /E2E Main Branch/ })).toBeVisible();
 
   await page.goto("/plants/species");
   await page.getByRole("button", { name: "Add species" }).click();

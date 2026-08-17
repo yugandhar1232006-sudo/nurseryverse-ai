@@ -51,7 +51,7 @@ test.describe("Plant Catalog (real backend)", () => {
     await signUpLogInAndCreateOrg(page, request, "catalog-species");
 
     await page.goto("/plants/species");
-    await expect(page.getByText("Species catalog")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Species catalog" })).toBeVisible();
     await page.getByRole("button", { name: "Add species" }).click();
 
     const dialog = page.getByRole("dialog");

@@ -60,7 +60,13 @@ function SelectContent({
         data-slot="select-content"
         position={position}
         className={cn(
-          "relative z-dropdown max-h-(--radix-select-content-available-height) min-w-[8rem] overflow-y-auto " +
+          // z-overlay (not z-dropdown): the content portals to <body>, and
+          // when the Select is mounted inside an open Dialog it must stack
+          // above that dialog's scrim (z-overlay-scrim) + content
+          // (z-overlay) or the scrim intercepts every click on an option.
+          // DOM order (this portal mounts after the dialog's) breaks the
+          // equal-z-index tie against the dialog content itself.
+          "relative z-overlay max-h-(--radix-select-content-available-height) min-w-[8rem] overflow-y-auto " +
             "overflow-x-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-raised " +
             "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 " +
             "data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",

@@ -206,6 +206,14 @@ class AuthService:
                 metadata={"locked_until": locked_until.isoformat()},
             )
 
+        # `login()` raises the generic wrong-password error right after
+        # this returns, and the request-level session (app/db/session.py)
+        # rolls back on any exception -- so without this explicit commit
+        # the counter increment above would be silently discarded and the
+        # lockout threshold could never be reached. Committed *before* the
+        # raise; see UserRepository.commit()'s docstring.
+        await self._users.commit()
+
     # ------------------------------------------------------------------
     # Refresh token rotation + replay detection
     # ------------------------------------------------------------------

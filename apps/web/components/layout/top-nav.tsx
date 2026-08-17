@@ -71,7 +71,15 @@ export function TopNav() {
         <PermissionGate permission="ai_assistant:use">
           <AssistantPanel />
         </PermissionGate>
-        <NotificationCenter />
+        {/* `notifications:read` is held by every role but NOT by a
+            role-less brand-new signup (permissions are fail-closed until
+            they create an org and become its Owner) -- gating the bell by
+            it (same pattern as the Assistant above) means a user who
+            can't read notifications doesn't get a panel that can only
+            show a permission error. */}
+        <PermissionGate permission="notifications:read">
+          <NotificationCenter />
+        </PermissionGate>
         <UserMenu />
       </div>
     </header>

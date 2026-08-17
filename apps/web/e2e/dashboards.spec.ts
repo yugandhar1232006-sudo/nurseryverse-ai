@@ -54,7 +54,14 @@ test.describe("Dashboards (real backend)", () => {
   }) => {
     await signUpAndLogIn(page, request);
 
-    await expect(page.getByText("Reporting is not part of your role")).toBeVisible();
+    // A brand-new signup has `org_id: null` -- no role, so no `reports:read`
+    // (see components/dashboards/no-reporting-access.tsx: `NoReportingAccess`
+    // deliberately branches on `orgId === null` and points the user at the
+    // real fix, Settings -> create an organization, instead of the generic
+    // "Reporting is not part of your role" copy that only applies once they
+    // belong to an org).
+    await expect(page.getByText(/not part of an organization yet/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Set up your organization" })).toBeVisible();
     // No dashboard tabs render for a user with no reports:read permission --
     // there is nothing behind them to show.
     await expect(page.getByRole("tab", { name: "Executive" })).toHaveCount(0);

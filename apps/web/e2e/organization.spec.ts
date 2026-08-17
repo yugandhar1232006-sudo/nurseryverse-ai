@@ -89,7 +89,7 @@ test.describe("Organization Management (real backend)", () => {
     await dialog.getByLabel(/Timezone/).fill("America/Los_Angeles");
     await dialog.getByRole("button", { name: "Create branch" }).click();
 
-    await expect(page.getByText("E2E Main Branch")).toBeVisible();
+    await expect(page.getByRole("row", { name: /E2E Main Branch/ })).toBeVisible();
   });
 
   test("the Settings route requires authentication like every other protected page", async ({ page }) => {

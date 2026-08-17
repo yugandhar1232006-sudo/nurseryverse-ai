@@ -100,6 +100,10 @@ class FakeUserRepository:
         self.users[user.id] = user
         return user
 
+    async def commit(self) -> None:
+        # In-memory fake: mutations are immediately visible, nothing to persist.
+        pass
+
     # --- Added by Phase 6 Module 13 ("User Administration") ---
     async def list_for_ids(self, user_ids: list[uuid.UUID]) -> list[User]:
         return [self.users[uid] for uid in user_ids if uid in self.users]
@@ -2792,6 +2796,9 @@ class FakeReportRepository:
             report.file_url = file_url
         if completed_at is not None:
             report.completed_at = completed_at
+
+    async def commit(self) -> None:
+        pass
 
 
 class FakeScheduledReportRepository:

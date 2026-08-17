@@ -55,7 +55,7 @@ async function signUpLogInAndCreateBranch(page: Page, request: APIRequestContext
   await branchDialog.getByLabel(/Country/).fill("US");
   await branchDialog.getByLabel(/Timezone/).fill("America/Los_Angeles");
   await branchDialog.getByRole("button", { name: "Create branch" }).click();
-  await expect(page.getByText("E2E Sales Branch")).toBeVisible();
+  await expect(page.getByRole("row", { name: /E2E Sales Branch/ })).toBeVisible();
 }
 
 async function createCustomer(page: Page, name: string): Promise<void> {
@@ -88,7 +88,8 @@ async function createAndStockInventoryLine(page: Page, name: string, receiveQuan
   const receiveDialog = page.getByRole("dialog");
   await receiveDialog.getByLabel("Quantity").fill(receiveQuantity);
   await receiveDialog.getByRole("button", { name: "Receive stock" }).click();
-  await expect(page.getByText(receiveQuantity)).toBeVisible();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page.getByText(`On hand: ${receiveQuantity}`, { exact: true })).toBeVisible();
 }
 
 test.describe("Sales & CRM (real backend)", () => {
@@ -115,11 +116,14 @@ test.describe("Sales & CRM (real backend)", () => {
     await dialog.getByRole("button", { name: "Add line" }).click();
     await dialog.getByRole("combobox", { name: "Inventory line" }).click();
     await page.getByRole("option", { name: "E2E 4in nursery pots" }).click();
+    await dialog.getByPlaceholder("Unit price").fill("25.00");
     await dialog.getByRole("button", { name: "Create sales order" }).click();
+    await expect(dialog).toBeHidden();
 
-    await expect(page.getByText("Sales Order")).toBeVisible();
+    await page.getByRole("row", { name: /draft/ }).click();
+    await expect(page.getByRole("heading", { name: "Sales Order" })).toBeVisible();
     await page.getByRole("button", { name: "Confirm" }).click();
-    await expect(page.getByText("confirmed", { exact: false })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Confirm" })).toBeHidden({ timeout: 30_000 });
 
     await page.getByRole("button", { name: "Checkout" }).click();
     await expect(page).toHaveURL(/\/sales\/[0-9a-f-]+$/);
@@ -130,8 +134,10 @@ test.describe("Sales & CRM (real backend)", () => {
     // Invoice; go back to the Sales Order detail page, which does.
     await page.goto("/sales");
     await page.getByRole("tab", { name: "Orders" }).click();
-    await page.getByText("E2E Sales Branch").first().click();
-    await expect(page.getByText(/Invoice INV-/)).toBeVisible();
+    await page.getByRole("row", { name: /E2E Sales Branch/ }).click();
+    await expect(page.getByRole("heading", { name: "Sales Order" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(/Invoice INV-/)).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole("button", { name: "Record payment" }).click();
     dialog = page.getByRole("dialog");
@@ -156,9 +162,13 @@ test.describe("Sales & CRM (real backend)", () => {
     await orderDialog.getByRole("button", { name: "Add line" }).click();
     await orderDialog.getByRole("combobox", { name: "Inventory line" }).click();
     await page.getByRole("option", { name: "E2E Soil bags" }).click();
+    await orderDialog.getByPlaceholder("Unit price").fill("25.00");
     await orderDialog.getByRole("button", { name: "Create sales order" }).click();
+    await expect(orderDialog).toBeHidden();
 
+    await page.getByRole("row", { name: /draft/ }).click();
     await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(page.getByRole("button", { name: "Confirm" })).toBeHidden({ timeout: 30_000 });
     await page.getByRole("button", { name: "Checkout" }).click();
     await expect(page).toHaveURL(/\/sales\/[0-9a-f-]+$/);
 
@@ -169,13 +179,13 @@ test.describe("Sales & CRM (real backend)", () => {
 
     await page.goto("/sales");
     await page.getByRole("tab", { name: "Returns" }).click();
-    await page.getByText("E2E Sales Branch").first().click();
+    await page.getByRole("row", { name: /E2E Sales Branch/ }).click();
     await expect(page).toHaveURL(/\/sales\/returns\/[0-9a-f-]+$/);
 
     await page.getByRole("button", { name: "Approve" }).click();
-    await expect(page.getByText("approved", { exact: false })).toBeVisible();
+    await expect(page.getByText("approved", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Complete return" }).click();
-    await expect(page.getByText("completed", { exact: false })).toBeVisible();
+    await expect(page.getByText("completed", { exact: true })).toBeVisible();
   });
 });

@@ -58,7 +58,7 @@ async function signUpLogInAndCreateBranch(page: Page, request: APIRequestContext
   await branchDialog.getByLabel(/Country/).fill("US");
   await branchDialog.getByLabel(/Timezone/).fill("America/Los_Angeles");
   await branchDialog.getByRole("button", { name: "Create branch" }).click();
-  await expect(page.getByText("E2E Inventory Branch")).toBeVisible();
+  await expect(page.getByRole("row", { name: /E2E Inventory Branch/ })).toBeVisible();
 }
 
 async function createInventoryLine(page: Page, name: string): Promise<void> {
@@ -82,7 +82,9 @@ test.describe("Inventory (real backend)", () => {
     await createInventoryLine(page, "E2E 4in nursery pots");
 
     await expect(page.getByText("E2E 4in nursery pots")).toBeVisible();
-    await expect(page.getByText("In stock")).toBeVisible();
+    // A brand-new line starts with on-hand 0 and the default 10-unit
+    // low-stock threshold, so it renders as Low stock (not In stock).
+    await expect(page.locator("table").getByRole("cell").filter({ hasText: "Low stock" })).toBeVisible();
   });
 
   test("receives real stock against a real inventory line and the on-hand quantity updates", async ({ page, request }) => {
@@ -97,7 +99,7 @@ test.describe("Inventory (real backend)", () => {
     await receiveDialog.getByLabel("Quantity").fill("50");
     await receiveDialog.getByRole("button", { name: "Receive stock" }).click();
 
-    await expect(page.getByText("On hand:").locator("..").getByText("50")).toBeVisible();
+    await expect(page.getByText("On hand: 50", { exact: true })).toBeVisible();
   });
 
   test("adjusts real stock with a reason and the movement appears in the real ledger", async ({ page, request }) => {
@@ -118,7 +120,7 @@ test.describe("Inventory (real backend)", () => {
     await dialog.getByRole("button", { name: "Adjust stock" }).click();
 
     await page.getByRole("tab", { name: "Movements" }).click();
-    await expect(page.getByText("Adjusted")).toBeVisible();
+    await expect(page.getByText("Adjusted", { exact: true })).toBeVisible();
   });
 
   test("creates a real inventory location for a branch and it appears in the real Locations panel", async ({ page, request }) => {

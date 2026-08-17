@@ -25,18 +25,21 @@ out/
 build/
 *.tsbuildinfo
 
-# Test suite + tooling -- not needed at runtime; keeps the production image
-# smaller and avoids shipping test fixtures/playwright browsers as if they
-# were application code.
-test/
-e2e/
+# Generated test-runner artifacts -- never copied into an image.
 coverage/
 test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
-vitest.config.ts
-playwright.config.ts
+
+# NOTE: `test/`, `e2e/`, vitest.config.ts, and playwright.config.ts are
+# deliberately NOT excluded. `next build` typechecks every .ts/.tsx the
+# tsconfig `include` globs (tsconfig.json: `**/*.ts`, `**/*.tsx`), and the
+# app's own `__tests__/` files import `@/test/*` (path alias `@/*` ->
+# `./*`, tsconfig.json) -- dropping `test/` here made the container's
+# typecheck diverge from the host's and fail the build (TS2307). Keeping
+# these small source dirs in the context keeps the container's typecheck
+# identical to the host's. They're only a few KB of fixtures/handlers.
 
 # Debug/log files.
 *.log

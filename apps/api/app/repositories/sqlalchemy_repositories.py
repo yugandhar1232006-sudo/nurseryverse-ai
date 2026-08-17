@@ -114,6 +114,9 @@ class SqlAlchemyUserRepository:
         await self._session.flush()
         return user
 
+    async def commit(self) -> None:
+        await self._session.commit()
+
     # --- Added by Phase 6 Module 13 ("User Administration") ---
     async def list_for_ids(self, user_ids: list[uuid.UUID]) -> list[User]:
         if not user_ids:
@@ -1541,6 +1544,12 @@ class SqlAlchemyInventoryRepository:
             return None
         inventory.version = expected_version + 1
         await self._session.flush()
+        # The bulk UPDATE above expired the ORM instance's column
+        # attributes (`synchronize_session` defaults to "fetch" for a
+        # bulk update). Reading e.g. `quantity` without a reload would
+        # fire a synchronous lazy load -- `MissingGreenlet` in this async
+        # service. Refresh explicitly so callers can read the new values.
+        await self._session.refresh(inventory)
         return inventory
 
     async def get_by_branch_and_name(self, branch_id: uuid.UUID, name: str) -> Inventory | None:
@@ -2949,6 +2958,9 @@ class SqlAlchemyReportRepository:
         if completed_at is not None:
             report.completed_at = completed_at
         await self._session.flush()
+
+    async def commit(self) -> None:
+        await self._session.commit()
 
 
 class SqlAlchemyScheduledReportRepository:

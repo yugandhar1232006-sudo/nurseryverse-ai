@@ -37,6 +37,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects.postgresql import ENUM
 
 # revision identifiers, used by Alembic.
 revision: str = "0016"
@@ -74,10 +75,14 @@ def _join_tenant_policy(table: str, fk_col: str, parent: str) -> str:
 
 def upgrade() -> None:
     # --- new enums ---
+    # delivery_status is auto-created by the op.create_table() that uses it
+    # below, so it must NOT be created explicitly here (alembic's
+    # create_table emits CREATE TYPE without checkfirst -> duplicate).
+    # frequency is added to the pre-existing notification_preferences table
+    # via op.add_column(), so it MUST be created explicitly.
     delivery_status = sa.Enum(
         "PENDING", "SENT", "FAILED", "DEAD_LETTER", name="notification_delivery_status"
     )
-    delivery_status.create(op.get_bind(), checkfirst=True)
 
     frequency = sa.Enum(
         "IMMEDIATE", "DAILY_DIGEST", "WEEKLY_DIGEST", name="notification_frequency"
@@ -132,8 +137,8 @@ def upgrade() -> None:
     op.create_table(
         "notification_templates",
         sa.Column("nursery_id", sa.UUID(), nullable=True),
-        sa.Column("category", sa.Enum(name="notification_category"), nullable=False),
-        sa.Column("channel", sa.Enum(name="notification_channel"), nullable=False),
+        sa.Column("category", ENUM(name="notification_category", create_type=False), nullable=False),
+        sa.Column("channel", ENUM(name="notification_channel", create_type=False), nullable=False),
         sa.Column("format", sa.String(length=20), server_default="text", nullable=False),
         sa.Column("locale", sa.String(length=10), server_default="en", nullable=False),
         sa.Column("version", sa.Integer(), server_default="1", nullable=False),
@@ -164,7 +169,7 @@ def upgrade() -> None:
     op.create_table(
         "notification_deliveries",
         sa.Column("notification_id", sa.UUID(), nullable=False),
-        sa.Column("channel", sa.Enum(name="notification_channel"), nullable=False),
+        sa.Column("channel", ENUM(name="notification_channel", create_type=False), nullable=False),
         sa.Column("status", delivery_status, server_default="PENDING", nullable=False),
         sa.Column("attempt_count", sa.Integer(), server_default="0", nullable=False),
         sa.Column("max_attempts", sa.Integer(), server_default="3", nullable=False),

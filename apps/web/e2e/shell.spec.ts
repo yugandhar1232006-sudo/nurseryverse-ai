@@ -47,6 +47,26 @@ async function signUpAndLogIn(page: Page, request: APIRequestContext): Promise<s
   return email;
 }
 
+/**
+ * The notification bell/Alerts tab are gated by `notifications:read`
+ * (see components/layout/top-nav.tsx) -- a bare signup has no role and
+ * therefore no bell at all. The notification-center tests need a user
+ * who genuinely holds that permission, so they create an organization
+ * first (which makes the signing-up user its Owner, granting
+ * `notifications:read` per docs/ux/07-role-permission-matrix.md).
+ */
+async function signUpLogInAndCreateOrg(page: Page, request: APIRequestContext): Promise<string> {
+  const email = await signUpAndLogIn(page, request);
+
+  await page.goto("/settings");
+  await page.getByLabel("Organization name").fill(`${email.split("@")[0]} Nursery`);
+  await page.getByLabel("Contact email").fill(`contact-${Date.now()}@example.com`);
+  await page.getByRole("button", { name: "Create organization" }).click();
+  await expect(page.getByRole("tab", { name: "Branches" })).toBeVisible();
+
+  return email;
+}
+
 test.describe("Application Shell (real backend)", () => {
   test("login lands on the real Dashboard route inside the full shell", async ({ page, request }) => {
     await signUpAndLogIn(page, request);
@@ -100,11 +120,14 @@ test.describe("Application Shell (real backend)", () => {
     await expect(page.getByRole("combobox", { name: "Select branch" })).toHaveCount(0);
   });
 
-  test("the notification center opens from the header bell and shows a real empty state for a brand-new account", async ({
+  test("the notification center opens from the header bell and shows a real empty state for a fresh org Owner", async ({
     page,
     request,
   }) => {
-    await signUpAndLogIn(page, request);
+    // A bare signup has no role and therefore no bell (notifications:read
+    // is gated) -- create an org to become an Owner who legitimately has
+    // the permission, then the empty state is the real one.
+    await signUpLogInAndCreateOrg(page, request);
 
     await page.getByRole("button", { name: /Notifications/ }).click();
     await expect(page.getByText("No notifications yet")).toBeVisible();
@@ -158,9 +181,13 @@ test.describe("Application Shell (real backend)", () => {
     });
 
     test("the Alerts tab opens the same notification panel as the desktop bell", async ({ page, request }) => {
-      await signUpAndLogIn(page, request);
+      await signUpLogInAndCreateOrg(page, request);
 
-      await page.getByRole("button", { name: "Notifications" }).click();
+      // Scope to the mobile tab bar: on a phone viewport the desktop
+      // header bell is also present in the DOM (CSS-hidden), so the bare
+      // `getByRole("button", { name: "Notifications" })` matches both and
+      // trips strict mode.
+      await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "Notifications" }).click();
       await expect(page.getByText("No notifications yet")).toBeVisible();
     });
   });

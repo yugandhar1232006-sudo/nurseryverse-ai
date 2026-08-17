@@ -39,6 +39,7 @@ export function useRunSurvivalPredictionMutation(plantId: string) {
     mutationFn: () => aiApi.runSurvivalPrediction(plantId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: aiPredictionKeys.plantList(plantId, {}) });
+      void queryClient.invalidateQueries({ queryKey: aiPredictionKeys.survivalRisk({}) });
       toast.success("Survival prediction generated");
     },
     onError: (error) => toast.apiError(error),

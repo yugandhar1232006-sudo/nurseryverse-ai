@@ -40,7 +40,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ENUM
 
 # revision identifiers, used by Alembic.
 revision: str = "0017"
@@ -80,8 +80,10 @@ def upgrade() -> None:
     op.execute("ALTER TYPE notification_category ADD VALUE IF NOT EXISTS 'REPORT_READY'")
 
     # --- new enum: report_schedule_frequency ---
+    # Auto-created by the op.create_table() below that uses it; must NOT be
+    # created explicitly here (alembic's create_table emits CREATE TYPE
+    # without checkfirst -> duplicate).
     frequency = sa.Enum("DAILY", "WEEKLY", "MONTHLY", name="report_schedule_frequency")
-    frequency.create(op.get_bind(), checkfirst=True)
 
     # --- scheduled_reports table ---
     op.create_table(
@@ -92,15 +94,16 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=200), nullable=False),
         sa.Column(
             "report_type",
-            sa.Enum(
+            ENUM(
                 "INVENTORY", "SALES", "REVENUE", "PLANT_LOSS", "AI_SUMMARY", "PLANT_PASSPORT",
                 "PLANT", "PROFIT", "CUSTOMER", "EMPLOYEE", "BRANCH", "DISEASE", "GROWTH",
                 "WATER_USAGE", "FERTILIZER", "NOTIFICATION", "AUDIT", "SECURITY",
                 name="report_type",
+                create_type=False,
             ),
             nullable=False,
         ),
-        sa.Column("format", sa.Enum("PDF", "EXCEL", "CSV", "JSON", name="report_format"), nullable=False),
+        sa.Column("format", ENUM("PDF", "EXCEL", "CSV", "JSON", name="report_format", create_type=False), nullable=False),
         sa.Column("filters", sa.JSON(), nullable=True),
         sa.Column("frequency", frequency, nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
@@ -138,19 +141,19 @@ def upgrade() -> None:
         active_plants AS (
             SELECT nursery_id, SUM(plant_count) AS active_plant_count
             FROM plant_counts
-            WHERE status != 'deceased' AND status != 'sold'
+            WHERE status != 'DECEASED' AND status != 'SOLD'
             GROUP BY nursery_id
         ),
         branch_counts AS (
             SELECT nursery_id, COUNT(*) AS branch_count
             FROM branches
-            WHERE status = 'active'
+            WHERE status = 'ACTIVE'
             GROUP BY nursery_id
         ),
         employee_counts AS (
             SELECT nursery_id, COUNT(*) AS employee_count
             FROM employees
-            WHERE status = 'active'
+            WHERE status = 'ACTIVE'
             GROUP BY nursery_id
         ),
         low_stock_org AS (
@@ -163,7 +166,7 @@ def upgrade() -> None:
             SELECT p.nursery_id, COUNT(*) AS pending_disease_reports
             FROM disease_reports dr
             JOIN plants p ON p.id = dr.plant_id
-            WHERE dr.status IN ('draft', 'confirmed')
+            WHERE dr.status IN ('DRAFT', 'CONFIRMED')
             GROUP BY p.nursery_id
         )
         SELECT
@@ -211,23 +214,23 @@ def upgrade() -> None:
                 ap.created_at
             FROM ai_predictions ap
             JOIN plants p ON p.id = ap.plant_id
-            WHERE ap.prediction_type = 'survival_prediction' AND ap.plant_id IS NOT NULL
+            WHERE ap.prediction_type = 'SURVIVAL_PREDICTION' AND ap.plant_id IS NOT NULL
         ),
         scored AS (
             SELECT
                 nursery_id,
                 CASE
-                    WHEN predicted_risk_level IN ('high', 'critical') AND current_plant_status = 'deceased' THEN TRUE
-                    WHEN predicted_risk_level IN ('low', 'medium') AND current_plant_status != 'deceased' THEN TRUE
+                    WHEN predicted_risk_level IN ('high', 'critical') AND current_plant_status = 'DECEASED' THEN TRUE
+                    WHEN predicted_risk_level IN ('low', 'medium') AND current_plant_status != 'DECEASED' THEN TRUE
                     ELSE FALSE
                 END AS is_correct,
                 CASE
-                    WHEN predicted_risk_level IN ('high', 'critical') AND current_plant_status != 'deceased'
-                         AND current_plant_status NOT IN ('ready_for_sale', 'in_production', 'under_treatment') THEN FALSE
+                    WHEN predicted_risk_level IN ('high', 'critical') AND current_plant_status != 'DECEASED'
+                         AND current_plant_status NOT IN ('READY_FOR_SALE', 'IN_PRODUCTION', 'UNDER_TREATMENT') THEN FALSE
                     ELSE TRUE
                 END AS outcome_closed
             FROM survival_predictions
-            WHERE current_plant_status = 'deceased'
+            WHERE current_plant_status = 'DECEASED'
                OR predicted_risk_level IN ('low', 'medium')
         )
         SELECT
@@ -259,7 +262,7 @@ def upgrade() -> None:
             MIN(s.created_at) AS first_purchase_at,
             MAX(s.created_at) AS last_purchase_at
         FROM customers c
-        LEFT JOIN sales s ON s.customer_id = c.id AND s.status = 'completed'
+        LEFT JOIN sales s ON s.customer_id = c.id AND s.status = 'COMPLETED'
         GROUP BY c.id, c.nursery_id, c.branch_id, c.name;
         """
     )

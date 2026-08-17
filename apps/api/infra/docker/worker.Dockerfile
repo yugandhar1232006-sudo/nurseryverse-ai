@@ -82,6 +82,13 @@ COPY --chown=app:app app ./app
 COPY --chown=app:app migrations ./migrations
 COPY --chown=app:app alembic.ini ./alembic.ini
 
+# Same `LocalFileStorage` report-artifact directory as the API image
+# (app/reporting/file_storage.py, `REPORTS_LOCAL_STORAGE_PATH` default
+# `var/reports`): the worker runs scheduled/background report generation,
+# so it needs the same non-root-writable path pre-created. `/app` is
+# root-owned, so `app` can't create `var/` itself at runtime.
+RUN mkdir -p var/reports && chown -R app:app var
+
 USER app
 
 # No EXPOSE: worker/beat never serve HTTP traffic (docs/architecture/

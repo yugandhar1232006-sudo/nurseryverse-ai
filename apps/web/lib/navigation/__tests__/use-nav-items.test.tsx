@@ -88,13 +88,19 @@ describe("isNavItemActive", () => {
 
 describe("useMobileTabItems", () => {
   it("filters the mobile bottom-tab set by the same permission codes", () => {
-    signInWith(["plants:read"]);
+    signInWith(["plants:read", "notifications:read"]);
     const { result } = renderHook(() => useMobileTabItems());
     const ids = result.current.map((item) => item.id);
     expect(ids).toContain("dashboard");
     expect(ids).toContain("plants");
     expect(ids).not.toContain("watering"); // requires watering:read, not held
-    expect(ids).toContain("notifications"); // never gated
+    expect(ids).toContain("notifications"); // requires notifications:read, held
+  });
+
+  it("hides the Alerts tab for a user without notifications:read (role-less signup)", () => {
+    signInWith([]);
+    const { result } = renderHook(() => useMobileTabItems());
+    expect(result.current.map((item) => item.id)).not.toContain("notifications");
   });
 
   it("includes Watering once watering:read is held", () => {
