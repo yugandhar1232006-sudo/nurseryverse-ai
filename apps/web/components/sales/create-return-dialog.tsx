@@ -107,7 +107,7 @@ export function CreateReturnDialog({
                 <div key={item.id} className="grid grid-cols-1 gap-2 rounded-md border border-border p-3 tablet:grid-cols-[auto_1fr_1fr_auto_1fr] tablet:items-center">
                   <Checkbox checked={row.included} onCheckedChange={(checked) => updateRow(item.id, { included: checked === true })} aria-label={`Include line ${item.id}`} />
                   <span className="text-body-sm text-foreground">
-                    {item.quantity} × ${Number(item.unit_price).toFixed(2)}
+                    {item.quantity} × ₹{Number(item.unit_price).toFixed(2)}
                   </span>
                   <Input
                     inputMode="numeric"

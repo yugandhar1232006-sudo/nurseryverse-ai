@@ -25,6 +25,7 @@ class RegisterPlantRequest(BaseModel):
     purchase_date: datetime | None = None
     price: float | None = Field(None, ge=0)
     planted_at: datetime | None = None
+    description: str | None = Field(None, max_length=5000)
 
 
 class BulkRegisterPlantsRequest(BaseModel):
@@ -39,6 +40,7 @@ class UpdatePlantProfileRequest(BaseModel):
     purchase_price: float | None = Field(None, ge=0)
     purchase_date: datetime | None = None
     price: float | None = Field(None, ge=0)
+    description: str | None = Field(None, max_length=5000)
 
 
 class TransitionStatusRequest(BaseModel):
@@ -98,6 +100,7 @@ class PlantResponse(BaseModel):
     registered_by_user_id: uuid.UUID | None
     archived_at: datetime | None
     archived_reason: str | None
+    description: str | None
     created_at: datetime
     updated_at: datetime
 

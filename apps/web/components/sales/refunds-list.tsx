@@ -127,7 +127,7 @@ export function RefundsList() {
                       </Badge>
                     </TableCell>
                     <TableCell className="capitalize text-muted-foreground">{refund.method.replace("_", " ")}</TableCell>
-                    <TableCell className="text-right font-medium text-foreground">${Number(refund.amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium text-foreground">₹{Number(refund.amount).toFixed(2)}</TableCell>
                     <TableCell className="text-muted-foreground">{new Date(refund.created_at).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}

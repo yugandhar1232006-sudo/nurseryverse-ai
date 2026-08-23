@@ -650,10 +650,10 @@ class FakeNurseryRepository:
         # at flush time, populating the attribute on the object without a
         # round-trip. This fake has no flush to do that for us, so it
         # applies the same defaults explicitly -- otherwise a fake-backed
-        # test would see `None` where production always sees "USD"/"UTC"/
+        # test would see `None` where production always sees "INR"/"UTC"/
         # `False`, same class of gap as `_backfill_timestamps` above.
         if settings.default_currency is None:
-            settings.default_currency = "USD"
+            settings.default_currency = "INR"
         if settings.default_timezone is None:
             settings.default_timezone = "UTC"
         if settings.sms_enabled is None:
@@ -1176,6 +1176,12 @@ class FakeSupplierRepository:
 
     async def get_by_id(self, supplier_id: uuid.UUID) -> Supplier | None:
         return self.suppliers.get(supplier_id)
+
+    async def list_for_nursery(self, nursery_id: uuid.UUID) -> list[Supplier]:
+        return sorted(
+            [s for s in self.suppliers.values() if s.nursery_id == nursery_id],
+            key=lambda s: s.name,
+        )
 
 
 # --------------------------------------------------------------------------
@@ -2514,6 +2520,47 @@ class FakeKnowledgeBaseChunkRepository:
         for c in candidates:
             counts[c.source_type] = counts.get(c.source_type, 0) + 1
         return [{"source_type": st, "count": n} for st, n in counts.items()]
+
+    # --- Added by RAG Ingestion Pipeline (Knowledge Article management) ---
+    async def delete_by_source_ref(self, source_ref: str) -> int:
+        to_delete = [
+            cid for cid, c in self.chunks.items()
+            if c.source_type == "knowledge_article" and c.source_ref == source_ref
+        ]
+        for cid in to_delete:
+            del self.chunks[cid]
+        return len(to_delete)
+
+    async def get_by_source_ref(self, source_ref: str) -> list[KnowledgeBaseChunk]:
+        chunks = [
+            c for c in self.chunks.values()
+            if c.source_type == "knowledge_article" and c.source_ref == source_ref
+        ]
+        chunks.sort(key=lambda c: c.created_at or datetime.min.replace(tzinfo=timezone.utc))
+        return chunks
+
+    async def list_distinct_articles(self, *, offset: int = 0, limit: int = 50) -> list[dict]:
+        article_map: dict[str, dict] = {}
+        for c in self.chunks.values():
+            if c.source_type != "knowledge_article":
+                continue
+            ref = c.source_ref
+            if ref not in article_map:
+                article_map[ref] = {
+                    "source_ref": ref,
+                    "title": c.title,
+                    "chunk_count": 0,
+                    "created_at": c.created_at,
+                }
+            article_map[ref]["chunk_count"] += 1
+            if c.created_at and (article_map[ref]["created_at"] is None or c.created_at < article_map[ref]["created_at"]):
+                article_map[ref]["created_at"] = c.created_at
+        articles = sorted(
+            article_map.values(),
+            key=lambda a: a["created_at"] or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        return articles[offset : offset + limit]
 
 
 # ======================================================================

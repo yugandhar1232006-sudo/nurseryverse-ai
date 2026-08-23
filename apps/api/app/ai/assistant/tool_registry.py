@@ -29,10 +29,13 @@ confirm_action`, invoking the exact same service method
 native page would -- restated from that LLD section's own "no
 assistant-specific validation bypass exists" note.
 """
+
 from __future__ import annotations
 
 import uuid
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from datetime import datetime, timezone
+from typing import Any
 
 from app.core.exceptions import NotFoundError
 from app.models.identity import User
@@ -44,7 +47,15 @@ from app.services.plant_service import PlantService
 from app.services.sales_service import SalesReportingService
 
 # Tools that only read data -- executed immediately, result handed straight back to the model.
-READ_TOOLS = frozenset({"get_plant_summary", "get_inventory_status", "get_sales_summary", "get_ai_predictions"})
+READ_TOOLS = frozenset(
+    {
+        "list_plants",
+        "get_plant_summary",
+        "get_inventory_status",
+        "get_sales_summary",
+        "get_ai_predictions",
+    }
+)
 # Tools that propose a write -- NEVER executed by this registry; see module docstring.
 WRITE_TOOLS = frozenset({"propose_watering_log", "propose_health_observation"})
 ALL_TOOL_NAMES = READ_TOOLS | WRITE_TOOLS
@@ -88,7 +99,10 @@ class AssistantToolRegistry:
         self._ai_predictions = ai_prediction_repo
         self._watering = watering_service
         self._health = health_service
-        self._dispatch: dict[str, Callable[[dict[str, Any]], Coroutine[Any, Any, dict[str, Any]]]] = {
+        self._dispatch: dict[
+            str, Callable[[dict[str, Any]], Coroutine[Any, Any, dict[str, Any]]]
+        ] = {
+            "list_plants": self._list_plants,
             "get_plant_summary": self._get_plant_summary,
             "get_inventory_status": self._get_inventory_status,
             "get_sales_summary": self._get_sales_summary,
@@ -101,11 +115,39 @@ class AssistantToolRegistry:
         """Anthropic tool-use JSON schema for every registered tool -- passed to `AssistantOrchestrator`'s Claude API call."""
         return [
             {
+                "name": "list_plants",
+                "description": "List plants in the nursery. Returns a paginated list with plant id, label, species, status, branch, and zone. Use this to answer questions like 'what plants do we have?', 'list all herbs', 'show me plants ready for sale', etc.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "search": {
+                            "type": "string",
+                            "description": "Optional search term to filter by common label, batch number, or QR token.",
+                        },
+                        "status": {
+                            "type": "string",
+                            "enum": ["in_production", "ready_for_sale", "under_treatment", "sold", "deceased"],
+                            "description": "Optional: filter by plant status.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of plants to return (default 20, max 50).",
+                        },
+                    },
+                },
+            },
+            {
                 "name": "get_plant_summary",
                 "description": "Get a summary of one plant: species, status, branch, batch number, and current state. Use when the user asks about a specific plant by name or id.",
                 "input_schema": {
                     "type": "object",
-                    "properties": {"plant_id": {"type": "string", "format": "uuid", "description": "The plant's UUID."}},
+                    "properties": {
+                        "plant_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "The plant's UUID.",
+                        }
+                    },
                     "required": ["plant_id"],
                 },
             },
@@ -114,7 +156,13 @@ class AssistantToolRegistry:
                 "description": "Get current inventory levels (in stock, reserved, damaged, available) for a branch. Use for inventory-level questions.",
                 "input_schema": {
                     "type": "object",
-                    "properties": {"branch_id": {"type": "string", "format": "uuid", "description": "The branch's UUID."}},
+                    "properties": {
+                        "branch_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "The branch's UUID.",
+                        }
+                    },
                     "required": ["branch_id"],
                 },
             },
@@ -123,7 +171,13 @@ class AssistantToolRegistry:
                 "description": "Get sales totals (revenue, tax, discount, average sale value, count) for the org, optionally filtered to one branch.",
                 "input_schema": {
                     "type": "object",
-                    "properties": {"branch_id": {"type": "string", "format": "uuid", "description": "Optional: restrict to one branch."}},
+                    "properties": {
+                        "branch_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "Optional: restrict to one branch.",
+                        }
+                    },
                 },
             },
             {
@@ -131,7 +185,13 @@ class AssistantToolRegistry:
                 "description": "Get the most recent AI predictions (Growth/Survival/Water/Disease) recorded for a specific plant.",
                 "input_schema": {
                     "type": "object",
-                    "properties": {"plant_id": {"type": "string", "format": "uuid", "description": "The plant's UUID."}},
+                    "properties": {
+                        "plant_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "description": "The plant's UUID.",
+                        }
+                    },
                     "required": ["plant_id"],
                 },
             },
@@ -142,7 +202,10 @@ class AssistantToolRegistry:
                     "type": "object",
                     "properties": {
                         "plant_id": {"type": "string", "format": "uuid"},
-                        "volume_ml": {"type": "number", "description": "Optional volume watered, in mL."},
+                        "volume_ml": {
+                            "type": "number",
+                            "description": "Optional volume watered, in mL.",
+                        },
                         "notes": {"type": "string", "description": "Optional notes."},
                     },
                     "required": ["plant_id"],
@@ -155,8 +218,14 @@ class AssistantToolRegistry:
                     "type": "object",
                     "properties": {
                         "plant_id": {"type": "string", "format": "uuid"},
-                        "status_label": {"type": "string", "description": "e.g. 'healthy', 'stressed', 'recovering'."},
-                        "health_score": {"type": "number", "description": "Optional 0-100 score."},
+                        "status_label": {
+                            "type": "string",
+                            "description": "e.g. 'healthy', 'stressed', 'recovering'.",
+                        },
+                        "health_score": {
+                            "type": "number",
+                            "description": "Optional 0-100 score.",
+                        },
                         "notes": {"type": "string"},
                     },
                     "required": ["plant_id", "status_label"],
@@ -170,18 +239,90 @@ class AssistantToolRegistry:
             return {"error": f"Unknown tool '{tool_name}'."}
         return await handler(arguments)
 
+    @staticmethod
+    def _parse_uuid(value: str) -> uuid.UUID | None:
+        """Parse a string as UUID, returning None on malformed input."""
+        try:
+            return uuid.UUID(value)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _require_uuid(
+        args: dict[str, Any], key: str
+    ) -> tuple[uuid.UUID | None, str | None]:
+        """Extract a UUID from args[key]; returns (uuid, error_msg)."""
+        if key not in args:
+            return None, f"Missing required argument: {key}."
+        parsed = AssistantToolRegistry._parse_uuid(str(args[key]))
+        if parsed is None:
+            return None, f"Invalid {key}: not a valid UUID."
+        return parsed, None
+
     # ------------------------------------------------------------------
     # Read tools
     # ------------------------------------------------------------------
 
+    async def _list_plants(self, args: dict[str, Any]) -> dict[str, Any]:
+        if self._org_id is None:
+            return {"error": "No organization context."}
+        decision = await self._authz.authorize(
+            user=self._user,
+            permission="plants:read",
+            resource_type="plant",
+            target_nursery_id=self._org_id,
+            context=self._context,
+        )
+        if not decision.allowed:
+            return {"error": "You do not have permission to view plants."}
+        from app.db.enums import PlantStatus
+
+        status_filter = None
+        if args.get("status"):
+            try:
+                status_filter = PlantStatus(args["status"])
+            except ValueError:
+                return {"error": f"Invalid status: {args['status']}"}
+        limit = min(int(args.get("limit") or 20), 50)
+        plants, total = await self._plants.list_for_nursery(
+            self._org_id,
+            offset=0,
+            limit=limit,
+            status=status_filter,
+            search=args.get("search"),
+        )
+        return {
+            "total": total,
+            "plants": [
+                {
+                    "plant_id": str(p.id),
+                    "common_label": p.common_label,
+                    "status": p.status.value if p.status else None,
+                    "branch_id": str(p.branch_id),
+                    "zone": p.zone,
+                    "batch_number": p.batch_number,
+                    "planted_at": p.planted_at.isoformat() if p.planted_at else None,
+                    "age_days": (datetime.now(timezone.utc).date() - p.planted_at.date()).days if p.planted_at else None,
+                }
+                for p in plants
+            ],
+        }
+
     async def _get_plant_summary(self, args: dict[str, Any]) -> dict[str, Any]:
-        plant_id = uuid.UUID(str(args["plant_id"]))
+        plant_id, err = self._require_uuid(args, "plant_id")
+        if err:
+            return {"error": err}
         plant = await self._plants.get_by_id(plant_id)
         if plant is None:
             return {"error": "Plant not found."}
         decision = await self._authz.authorize(
-            user=self._user, permission="plants:read", resource_type="plant", resource_id=plant.id,
-            target_nursery_id=plant.nursery_id, target_branch_id=plant.branch_id, context=self._context,
+            user=self._user,
+            permission="plants:read",
+            resource_type="plant",
+            resource_id=plant.id,
+            target_nursery_id=plant.nursery_id,
+            target_branch_id=plant.branch_id,
+            context=self._context,
         )
         if not decision.allowed:
             return {"error": "You do not have permission to view this plant."}
@@ -197,23 +338,41 @@ class AssistantToolRegistry:
     async def _get_inventory_status(self, args: dict[str, Any]) -> dict[str, Any]:
         if self._org_id is None:
             return {"error": "No organization context."}
-        branch_id = uuid.UUID(str(args["branch_id"]))
+        branch_id, err = self._require_uuid(args, "branch_id")
+        if err:
+            return {"error": err}
         decision = await self._authz.authorize(
-            user=self._user, permission="inventory:read", resource_type="inventory",
-            target_nursery_id=self._org_id, target_branch_id=branch_id, context=self._context,
+            user=self._user,
+            permission="inventory:read",
+            resource_type="inventory",
+            target_nursery_id=self._org_id,
+            target_branch_id=branch_id,
+            context=self._context,
         )
         if not decision.allowed:
-            return {"error": "You do not have permission to view inventory for this branch."}
-        return await self._inventory.inventory_summary(self._org_id, branch_id=branch_id)
+            return {
+                "error": "You do not have permission to view inventory for this branch."
+            }
+        return await self._inventory.inventory_summary(
+            self._org_id, branch_id=branch_id
+        )
 
     async def _get_sales_summary(self, args: dict[str, Any]) -> dict[str, Any]:
         if self._org_id is None:
             return {"error": "No organization context."}
         org_id = self._org_id
-        branch_id = uuid.UUID(str(args["branch_id"])) if args.get("branch_id") else None
+        branch_id = None
+        if args.get("branch_id"):
+            branch_id, err = self._require_uuid(args, "branch_id")
+            if err:
+                return {"error": err}
         decision = await self._authz.authorize(
-            user=self._user, permission="sales:read", resource_type="sale",
-            target_nursery_id=org_id, target_branch_id=branch_id, context=self._context,
+            user=self._user,
+            permission="sales:read",
+            resource_type="sale",
+            target_nursery_id=org_id,
+            target_branch_id=branch_id,
+            context=self._context,
         )
         if not decision.allowed:
             return {"error": "You do not have permission to view sales data."}
@@ -221,25 +380,37 @@ class AssistantToolRegistry:
         return await self._sales_reporting.sales_report(org_id, **filters)
 
     async def _get_ai_predictions(self, args: dict[str, Any]) -> dict[str, Any]:
-        plant_id = uuid.UUID(str(args["plant_id"]))
+        plant_id, err = self._require_uuid(args, "plant_id")
+        if err:
+            return {"error": err}
         plant = await self._plants.get_by_id(plant_id)
         if plant is None:
             return {"error": "Plant not found."}
         decision = await self._authz.authorize(
-            user=self._user, permission="ai_predictions:read", resource_type="ai_prediction",
-            resource_id=plant.id, target_nursery_id=plant.nursery_id, target_branch_id=plant.branch_id,
+            user=self._user,
+            permission="ai_predictions:read",
+            resource_type="ai_prediction",
+            resource_id=plant.id,
+            target_nursery_id=plant.nursery_id,
+            target_branch_id=plant.branch_id,
             context=self._context,
         )
         if not decision.allowed:
-            return {"error": "You do not have permission to view AI predictions for this plant."}
-        rows, total = await self._ai_predictions.list_for_plant(plant_id, offset=0, limit=10)
+            return {
+                "error": "You do not have permission to view AI predictions for this plant."
+            }
+        rows, total = await self._ai_predictions.list_for_plant(
+            plant_id, offset=0, limit=10
+        )
         return {
             "total": total,
             "predictions": [
                 {
                     "prediction_type": p.prediction_type.value,
                     "model_version": p.model_version,
-                    "confidence": str(p.confidence) if p.confidence is not None else None,
+                    "confidence": str(p.confidence)
+                    if p.confidence is not None
+                    else None,
                     "explanation": p.explanation,
                     "result": p.result,
                     "created_at": p.created_at.isoformat() if p.created_at else None,
@@ -253,16 +424,25 @@ class AssistantToolRegistry:
     # ------------------------------------------------------------------
 
     async def _propose_watering_log(self, args: dict[str, Any]) -> dict[str, Any]:
-        plant_id = uuid.UUID(str(args["plant_id"]))
+        plant_id, err = self._require_uuid(args, "plant_id")
+        if err:
+            return {"error": err}
         plant = await self._plants.get_by_id(plant_id)
         if plant is None:
             return {"error": "Plant not found."}
         decision = await self._authz.authorize(
-            user=self._user, permission="watering:write", resource_type="plant", resource_id=plant.id,
-            target_nursery_id=plant.nursery_id, target_branch_id=plant.branch_id, context=self._context,
+            user=self._user,
+            permission="watering:write",
+            resource_type="plant",
+            resource_id=plant.id,
+            target_nursery_id=plant.nursery_id,
+            target_branch_id=plant.branch_id,
+            context=self._context,
         )
         if not decision.allowed:
-            return {"error": "You do not have permission to record watering for this plant."}
+            return {
+                "error": "You do not have permission to record watering for this plant."
+            }
         return {
             "requires_confirmation": True,
             "tool_name": "propose_watering_log",
@@ -272,20 +452,30 @@ class AssistantToolRegistry:
                 "notes": args.get("notes"),
             },
             "summary": f"Record a watering event for plant {plant.common_label or plant_id}"
-            + (f" ({args['volume_ml']} mL)" if args.get("volume_ml") else "") + ".",
+            + (f" ({args['volume_ml']} mL)" if args.get("volume_ml") else "")
+            + ".",
         }
 
     async def _propose_health_observation(self, args: dict[str, Any]) -> dict[str, Any]:
-        plant_id = uuid.UUID(str(args["plant_id"]))
+        plant_id, err = self._require_uuid(args, "plant_id")
+        if err:
+            return {"error": err}
         plant = await self._plants.get_by_id(plant_id)
         if plant is None:
             return {"error": "Plant not found."}
         decision = await self._authz.authorize(
-            user=self._user, permission="health:write", resource_type="plant", resource_id=plant.id,
-            target_nursery_id=plant.nursery_id, target_branch_id=plant.branch_id, context=self._context,
+            user=self._user,
+            permission="health:write",
+            resource_type="plant",
+            resource_id=plant.id,
+            target_nursery_id=plant.nursery_id,
+            target_branch_id=plant.branch_id,
+            context=self._context,
         )
         if not decision.allowed:
-            return {"error": "You do not have permission to record a health observation for this plant."}
+            return {
+                "error": "You do not have permission to record a health observation for this plant."
+            }
         status_label = str(args["status_label"])
         return {
             "requires_confirmation": True,
@@ -301,7 +491,9 @@ class AssistantToolRegistry:
 
     # ------------------------------------------------------------------
 
-    async def execute_confirmed_action(self, *, tool_name: str, tool_arguments: dict[str, Any]) -> str:
+    async def execute_confirmed_action(
+        self, *, tool_name: str, tool_arguments: dict[str, Any]
+    ) -> str:
         """
         Called ONLY from `AssistantConversationService.confirm_action`,
         after a human has explicitly confirmed a previously proposed

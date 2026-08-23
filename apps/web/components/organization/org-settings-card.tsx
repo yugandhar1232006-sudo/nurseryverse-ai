@@ -120,7 +120,7 @@ function EditableSettings({ orgId, settings }: { orgId: string; settings: OrgSet
                   <FormItem>
                     <FormLabel>Currency (ISO 4217)</FormLabel>
                     <FormControl>
-                      <Input placeholder="USD" maxLength={3} {...field} />
+                      <Input placeholder="INR" maxLength={3} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -133,7 +133,7 @@ function EditableSettings({ orgId, settings }: { orgId: string; settings: OrgSet
                   <FormItem>
                     <FormLabel>Timezone (IANA)</FormLabel>
                     <FormControl>
-                      <Input placeholder="America/Los_Angeles" {...field} />
+                      <Input placeholder="Asia/Kolkata" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

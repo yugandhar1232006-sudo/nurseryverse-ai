@@ -1,6 +1,6 @@
 "use client";
 
-import { DollarSign, Receipt, TrendingDown, TrendingUp } from "lucide-react";
+import { IndianRupee, Receipt, TrendingDown, TrendingUp } from "lucide-react";
 
 import { ErrorState } from "@/components/error-state";
 import { KpiCard, KpiCardGrid } from "@/components/dashboards/kpi-card";
@@ -36,14 +36,14 @@ export function FinancialTab({ branchId, range, currency }: { branchId: string |
       <KpiCard
         label="Estimated gross profit"
         value={data ? formatCurrency(data.estimated_gross_profit, currency) : ""}
-        icon={DollarSign}
+        icon={IndianRupee}
         tone="success"
         loading={query.isLoading}
       />
       <KpiCard
         label="Estimated gross margin"
         value={data ? formatPercent(data.estimated_gross_margin) : ""}
-        icon={DollarSign}
+        icon={IndianRupee}
         tone="info"
         loading={query.isLoading}
       />

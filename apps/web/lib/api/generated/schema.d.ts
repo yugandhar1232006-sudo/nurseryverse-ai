@@ -901,6 +901,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/suppliers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List suppliers for the caller's organization
+         * @description Requires `plants:read` (used in service of the Plant Registration workflow).
+         */
+        get: operations["list_suppliers_api_v1_suppliers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plants/{plant_id}/disease-reports": {
         parameters: {
             query?: never;
@@ -3774,6 +3794,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/knowledge-articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List knowledge articles in the RAG knowledge base */
+        get: operations["list_knowledge_articles_api_v1_ai_knowledge_articles_get"];
+        put?: never;
+        /** Create (or re-create) a knowledge article in the RAG knowledge base */
+        post: operations["create_knowledge_article_api_v1_ai_knowledge_articles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/knowledge-articles/{source_ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a knowledge article's chunks */
+        get: operations["get_knowledge_article_api_v1_ai_knowledge_articles__source_ref__get"];
+        /** Re-ingest a knowledge article (replaces all chunks) */
+        put: operations["update_knowledge_article_api_v1_ai_knowledge_articles__source_ref__put"];
+        post?: never;
+        /** Delete a knowledge article from the RAG knowledge base */
+        delete: operations["delete_knowledge_article_api_v1_ai_knowledge_articles__source_ref__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4505,6 +4562,26 @@ export interface components {
             code?: string | null;
             /** Parent Location Id */
             parent_location_id?: string | null;
+        };
+        /** CreateKnowledgeArticleRequest */
+        CreateKnowledgeArticleRequest: {
+            /** Title */
+            title: string;
+            /**
+             * Content
+             * @description Full article text; will be chunked and embedded automatically.
+             */
+            content: string;
+            /**
+             * Source Ref
+             * @description Unique slug identifying this article, e.g. 'species:ficus-lyrata-care'.
+             */
+            source_ref: string;
+            /**
+             * Tags
+             * @description Optional tags for future filtering; not yet used in retrieval.
+             */
+            tags?: string[] | null;
         };
         /** CreateNurseryRequest */
         CreateNurseryRequest: {
@@ -5737,6 +5814,39 @@ export interface components {
          * @enum {string}
          */
         InvoiceStatus: "draft" | "sent" | "paid" | "overdue" | "void";
+        /** KnowledgeArticleDetailResponse */
+        KnowledgeArticleDetailResponse: {
+            /** Source Ref */
+            source_ref: string;
+            /** Title */
+            title: string | null;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Chunks */
+            chunks: Record<string, never>[];
+        };
+        /** KnowledgeArticleIngestResponse */
+        KnowledgeArticleIngestResponse: {
+            /** Source Ref */
+            source_ref: string;
+            /** Title */
+            title: string;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Chunk Ids */
+            chunk_ids: string[];
+        };
+        /** KnowledgeArticleResponse */
+        KnowledgeArticleResponse: {
+            /** Source Ref */
+            source_ref: string;
+            /** Title */
+            title: string | null;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Created At */
+            created_at: string | null;
+        };
         /** KnowledgeBaseStatusResponse */
         KnowledgeBaseStatusResponse: {
             /** Source Type */
@@ -6639,6 +6749,8 @@ export interface components {
             archived_at: string | null;
             /** Archived Reason */
             archived_reason: string | null;
+            /** Description */
+            description: string | null;
             /**
              * Created At
              * Format: date-time
@@ -7103,6 +7215,8 @@ export interface components {
             price?: number | null;
             /** Planted At */
             planted_at?: string | null;
+            /** Description */
+            description?: string | null;
         };
         /** RejectReturnRequest */
         RejectReturnRequest: {
@@ -7963,6 +8077,40 @@ export interface components {
             potential_margin: number;
         };
         /**
+         * SupplierResponse
+         * @description Minimal read-only supplier representation for dropdowns.
+         */
+        SupplierResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Contact Name */
+            contact_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /**
+             * Nursery Id
+             * Format: uuid
+             */
+            nursery_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
          * SystemAlertRequest
          * @description Body for `POST /notifications/system-alerts` -- the on-demand trigger for the `SYSTEM_ALERT` category (no scheduler exists in this codebase; see app/domain_events/events.py's `SystemAlertRaised` docstring).
          */
@@ -8163,6 +8311,15 @@ export interface components {
             /** Position */
             position?: string | null;
         };
+        /** UpdateKnowledgeArticleRequest */
+        UpdateKnowledgeArticleRequest: {
+            /** Title */
+            title?: string | null;
+            /** Content */
+            content?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+        };
         /** UpdateNurseryRequest */
         UpdateNurseryRequest: {
             /** Name */
@@ -8212,6 +8369,8 @@ export interface components {
             purchase_date?: string | null;
             /** Price */
             price?: number | null;
+            /** Description */
+            description?: string | null;
         };
         /** UpdatePlantVarietyRequest */
         UpdatePlantVarietyRequest: {
@@ -12387,6 +12546,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_suppliers_api_v1_suppliers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplierResponse"][];
+                };
+            };
+            /** @description Authentication failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing permission or cross-tenant access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -23243,6 +23440,258 @@ export interface operations {
                 };
             };
             /** @description Missing admin:read/admin:manage permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_knowledge_articles_api_v1_ai_knowledge_articles_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeArticleResponse"][];
+                };
+            };
+            /** @description Authentication failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing permission or cross-tenant access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_knowledge_article_api_v1_ai_knowledge_articles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateKnowledgeArticleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeArticleIngestResponse"];
+                };
+            };
+            /** @description Authentication failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing permission or cross-tenant access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_knowledge_article_api_v1_ai_knowledge_articles__source_ref__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeArticleDetailResponse"];
+                };
+            };
+            /** @description Authentication failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing permission or cross-tenant access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_knowledge_article_api_v1_ai_knowledge_articles__source_ref__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateKnowledgeArticleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeArticleIngestResponse"];
+                };
+            };
+            /** @description Authentication failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing permission or cross-tenant access */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_knowledge_article_api_v1_ai_knowledge_articles__source_ref__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            /** @description Authentication failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Missing permission or cross-tenant access */
             403: {
                 headers: {
                     [name: string]: unknown;

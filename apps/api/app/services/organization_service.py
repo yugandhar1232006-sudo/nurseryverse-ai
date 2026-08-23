@@ -61,7 +61,7 @@ class OrganizationService:
         )
         await self._nurseries.add(nursery)
         # Every Nursery gets exactly one OrgSettings row at creation time
-        # (defaults: USD/UTC) -- callers never have to remember to
+        # (defaults: INR/UTC) -- callers never have to remember to
         # separately provision it, and `get_settings` can assume it always
         # exists rather than treating "no settings yet" as a valid state.
         await self._nurseries.create_settings(OrgSettings(nursery_id=nursery.id))

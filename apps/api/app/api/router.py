@@ -23,6 +23,7 @@ from app.api.routes import (
     employees,
     health,
     inventory,
+    knowledge_articles,
     notifications,
     organizations,
     passport,
@@ -32,6 +33,7 @@ from app.api.routes import (
     reports,
     sales,
     species,
+    suppliers,
 )
 
 root_router = APIRouter()
@@ -50,6 +52,8 @@ api_v1_router.include_router(plant_varieties.router, prefix="/plant-varieties", 
 api_v1_router.include_router(plants.router, prefix="/plants", tags=["plants"])
 # plant_records.router's own paths already start with "/{plant_id}/..." -- mounted under the same /plants prefix.
 api_v1_router.include_router(plant_records.router, prefix="/plants", tags=["plant-records"])
+# Minimal suppliers list endpoint for the Plant Registration dropdown (read-only, plants:read permission).
+api_v1_router.include_router(suppliers.router, prefix="/suppliers", tags=["suppliers"])
 # disease_reports.router mounts its own absolute paths (/plants/{plant_id}/disease-reports, /disease-reports) -- no prefix.
 api_v1_router.include_router(disease_reports.router, tags=["disease-reports"])
 # Module 7 (Plant Digital Twin Engine). digital_twin.router mounts its own absolute paths
@@ -94,4 +98,7 @@ api_v1_router.include_router(reports.router, tags=["reports"])
 # the existing employees.router/organizations.router/branches.router above -- see
 # admin.py's own module docstring.
 api_v1_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+# Knowledge Articles (RAG Ingestion Pipeline). knowledge_articles.router mounts its own
+# absolute paths (/ai/knowledge-articles/*) -- no prefix, same pattern as ai_predictions.router above.
+api_v1_router.include_router(knowledge_articles.router, tags=["knowledge-articles"])
 # Module 14 (Production Readiness) onward will add further routers here.

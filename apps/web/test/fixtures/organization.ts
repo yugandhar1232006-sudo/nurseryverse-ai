@@ -54,7 +54,7 @@ export function makeOrgSettings(overrides: Partial<OrgSettingsResponse> = {}): O
   return {
     id: "88888888-8888-8888-8888-888888888801",
     nursery_id: "22222222-2222-2222-2222-222222222222",
-    default_currency: "USD",
+    default_currency: "INR",
     default_timezone: "America/Los_Angeles",
     branding_primary_color: "#2E7D32",
     email_sender_identity: null,

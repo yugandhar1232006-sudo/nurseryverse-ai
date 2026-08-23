@@ -35,7 +35,7 @@ class NurseryResponse(BaseModel):
 
 
 class UpdateOrgSettingsRequest(BaseModel):
-    currency: str | None = Field(None, min_length=3, max_length=3, description="ISO 4217, e.g. 'USD'")
+    currency: str | None = Field(None, min_length=3, max_length=3, description="ISO 4217, e.g. 'INR'")
     timezone: str | None = Field(None, description="IANA timezone name, e.g. 'America/New_York'")
     branding_primary_color: str | None = Field(None, description="Hex color, e.g. '#2E7D32'")
     email_sender_identity: str | None = Field(None, max_length=255)

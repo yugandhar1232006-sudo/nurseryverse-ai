@@ -137,6 +137,7 @@ class PlantService:
         purchase_date: datetime | None = None,
         price: float | None = None,
         planted_at: datetime | None = None,
+        description: str | None = None,
         request_id: str | None = None,
     ) -> Plant:
         """
@@ -193,6 +194,7 @@ class PlantService:
             purchase_price=purchase_price,
             purchase_date=purchase_date,
             registered_by_user_id=actor_user_id,
+            description=description,
         )
         await self._plants.add(plant)
 
@@ -307,6 +309,7 @@ class PlantService:
         purchase_price: float | None = None,
         purchase_date: datetime | None = None,
         price: float | None = None,
+        description: str | None = None,
         request_id: str | None = None,
     ) -> Plant:
         """Same "`None` means leave unchanged" convention every prior module's own PATCH-style update method uses (Module 4/5)."""
@@ -344,6 +347,9 @@ class PlantService:
                 raise ValidationError("price cannot be negative.")
             plant.price = price
             changed.append("price")
+        if description is not None and description != plant.description:
+            plant.description = description
+            changed.append("description")
 
         if not changed:
             return plant

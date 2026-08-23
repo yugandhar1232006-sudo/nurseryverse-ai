@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, ArrowLeftRight, Boxes, DollarSign, History, PackageCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, Boxes, IndianRupee, History, PackageCheck, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -136,9 +136,9 @@ function ValuationReport({ branchId }: { branchId: string | undefined }) {
 
   const cards = [
     { label: "Lines", value: valuation.line_count, icon: Boxes },
-    { label: "Cost value", value: `$${valuation.total_cost_value.toFixed(2)}`, icon: DollarSign },
-    { label: "Retail value", value: `$${valuation.total_retail_value.toFixed(2)}`, icon: DollarSign },
-    { label: "Potential margin", value: `$${valuation.potential_margin.toFixed(2)}`, icon: DollarSign },
+    { label: "Cost value", value: `₹${valuation.total_cost_value.toFixed(2)}`, icon: IndianRupee },
+    { label: "Retail value", value: `₹${valuation.total_retail_value.toFixed(2)}`, icon: IndianRupee },
+    { label: "Potential margin", value: `₹${valuation.potential_margin.toFixed(2)}`, icon: IndianRupee },
   ];
 
   return (

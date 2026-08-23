@@ -1,6 +1,6 @@
 "use client";
 
-import { DollarSign, Repeat, ShoppingBag } from "lucide-react";
+import { IndianRupee, Repeat, ShoppingBag } from "lucide-react";
 
 import { ErrorState } from "@/components/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,8 +17,8 @@ export function OverviewTab({ customerId }: { customerId: string }) {
 
   const cards = [
     { label: "Total orders", value: analytics.total_orders, icon: ShoppingBag },
-    { label: "Total spent", value: `$${analytics.total_spent.toFixed(2)}`, icon: DollarSign },
-    { label: "Average order value", value: `$${analytics.average_order_value.toFixed(2)}`, icon: Repeat },
+    { label: "Total spent", value: `₹${analytics.total_spent.toFixed(2)}`, icon: IndianRupee },
+    { label: "Average order value", value: `₹${analytics.average_order_value.toFixed(2)}`, icon: Repeat },
   ];
 
   return (

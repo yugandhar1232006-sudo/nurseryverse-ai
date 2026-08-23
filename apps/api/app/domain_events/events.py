@@ -898,6 +898,46 @@ class AssistantActionCancelled(BaseDomainEvent):
 
 
 # ==============================================================================
+# Knowledge Articles (RAG Ingestion Pipeline)
+# ==============================================================================
+
+
+@dataclass(frozen=True)
+class KnowledgeArticleCreated(BaseDomainEvent):
+    """Fired when a knowledge article is ingested into the RAG knowledge base."""
+
+    event_type: ClassVar[str] = "knowledge_article.created"
+    aggregate_type: ClassVar[str] = "KnowledgeBaseChunk"
+
+    source_ref: str
+    title: str
+    chunk_count: int
+
+
+@dataclass(frozen=True)
+class KnowledgeArticleUpdated(BaseDomainEvent):
+    """Fired when a knowledge article is re-ingested (old chunks replaced)."""
+
+    event_type: ClassVar[str] = "knowledge_article.updated"
+    aggregate_type: ClassVar[str] = "KnowledgeBaseChunk"
+
+    source_ref: str
+    title: str
+    chunk_count: int
+
+
+@dataclass(frozen=True)
+class KnowledgeArticleDeleted(BaseDomainEvent):
+    """Fired when a knowledge article's chunks are removed from the RAG store."""
+
+    event_type: ClassVar[str] = "knowledge_article.deleted"
+    aggregate_type: ClassVar[str] = "KnowledgeBaseChunk"
+
+    source_ref: str
+    deleted_chunk_count: int
+
+
+# ==============================================================================
 # Phase 6 Module 11 (Notifications) — this module's OWN new event vocabulary.
 # Thirteen of its sixteen required notification categories are driven by
 # events every prior module already publishes (EmployeeInvited,

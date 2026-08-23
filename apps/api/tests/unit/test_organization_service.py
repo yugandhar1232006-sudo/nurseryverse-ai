@@ -40,7 +40,7 @@ class TestCreateNursery:
         assert nursery.status == NurseryStatus.ACTIVE
 
         settings = await org_service.get_settings(nursery.id)
-        assert settings.default_currency == "USD"
+        assert settings.default_currency == "INR"
         assert settings.default_timezone == "UTC"
 
     async def test_creation_writes_audit_log_and_domain_event(self, org_service: OrganizationService) -> None:
@@ -186,5 +186,5 @@ class TestOrgSettings:
             name="Settings Co", contact_email="s@example.com", actor_user_id=uuid.uuid4()
         )
         before = len(org_service._audit.rows)  # type: ignore[attr-defined]
-        await org_service.update_settings(nursery_id=nursery.id, actor_user_id=uuid.uuid4(), currency="USD")
+        await org_service.update_settings(nursery_id=nursery.id, actor_user_id=uuid.uuid4(), currency="INR")
         assert len(org_service._audit.rows) == before  # type: ignore[attr-defined]

@@ -119,7 +119,7 @@ describe("SalesPage (7J)", () => {
     renderWithProviders(<SalesPage />);
 
     await userEvent.setup().click(await screen.findByRole("tab", { name: "Sales" }));
-    expect(await screen.findByText("$215.00")).toBeInTheDocument();
+    expect(await screen.findByText("₹215.00")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /new sale/i })).not.toBeInTheDocument();
   });
 
@@ -157,7 +157,7 @@ describe("SalesPage (7J)", () => {
 
     await user.click(await screen.findByRole("tab", { name: "Reports" }));
     expect(await screen.findByText("Total revenue")).toBeInTheDocument();
-    expect(screen.getByText("$1240.50")).toBeInTheDocument();
+    expect(screen.getByText("₹1240.50")).toBeInTheDocument();
   });
 });
 

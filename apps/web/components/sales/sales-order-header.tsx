@@ -76,7 +76,7 @@ export function SalesOrderHeader({ order }: { order: SalesOrderResponse }) {
 
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-body-sm text-muted-foreground">
           <span>
-            Total: <span className="text-foreground">${Number(order.total_amount).toFixed(2)}</span>
+            Total: <span className="text-foreground">₹{Number(order.total_amount).toFixed(2)}</span>
           </span>
           {order.confirmed_at && <span>Confirmed: {new Date(order.confirmed_at).toLocaleString()}</span>}
           {order.fulfilled_at && <span>Fulfilled: {new Date(order.fulfilled_at).toLocaleString()}</span>}
@@ -126,9 +126,9 @@ export function SalesOrderHeader({ order }: { order: SalesOrderResponse }) {
               {(itemsQuery.data ?? []).map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right">${Number(item.unit_price).toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${Number(item.tax_amount).toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-medium text-foreground">${Number(item.line_total).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">₹{Number(item.unit_price).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">₹{Number(item.tax_amount).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium text-foreground">₹{Number(item.line_total).toFixed(2)}</TableCell>
                   <TableCell className="text-muted-foreground">{item.reservation_id ? "Yes" : "No"}</TableCell>
                 </TableRow>
               ))}

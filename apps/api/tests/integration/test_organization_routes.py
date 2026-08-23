@@ -117,7 +117,7 @@ async def test_org_settings_round_trip(authenticated_client, harness):
 
     get_response = await ac.get(f"/api/v1/orgs/{org_id}/settings")
     assert get_response.status_code == 200
-    assert get_response.json()["default_currency"] == "USD"
+    assert get_response.json()["default_currency"] == "INR"
 
     patch_response = await ac.patch(f"/api/v1/orgs/{org_id}/settings", json={"currency": "EUR"})
     assert patch_response.status_code == 200
@@ -180,5 +180,5 @@ def _settings(org_id: uuid.UUID):
     from app.models.platform import OrgSettings
 
     return OrgSettings(
-        id=uuid.uuid4(), nursery_id=org_id, default_currency="USD", default_timezone="UTC", sms_enabled=False
+        id=uuid.uuid4(), nursery_id=org_id, default_currency="INR", default_timezone="UTC", sms_enabled=False
     )

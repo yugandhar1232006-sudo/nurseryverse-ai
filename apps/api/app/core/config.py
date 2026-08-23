@@ -156,6 +156,24 @@ class Settings(BaseSettings):
     ANTHROPIC_INPUT_COST_PER_MTOK: float = 3.00
     ANTHROPIC_OUTPUT_COST_PER_MTOK: float = 15.00
 
+    # --- Ollama (local LLM / embedding provider) ---
+    # `LLM_PROVIDER` selects the backend for the AI Assistant's chat
+    # completions: "anthropic" uses the Anthropic Claude API above;
+    # "ollama" uses a local Ollama server. When set to "ollama", the
+    # `ANTHROPIC_API_KEY` check in the orchestrator is bypassed and the
+    # `OLLAMA_*` settings below are used instead.
+    LLM_PROVIDER: str = "ollama"  # "anthropic" | "ollama"
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_CHAT_MODEL: str = "llama3.2"
+
+    # `EMBEDDING_PROVIDER` selects the backend for RAG knowledge-base
+    # embeddings: "voyage" uses the Voyage AI API; "ollama" uses a local
+    # Ollama server. Both mxbai-embed-large (Ollama) and voyage-3 (Voyage
+    # AI) produce 1024-dimensional vectors matching `EMBEDDING_DIM` in
+    # app/models/ai.py.
+    EMBEDDING_PROVIDER: str = "ollama"  # "voyage" | "ollama"
+    OLLAMA_EMBEDDING_MODEL: str = "mxbai-embed-large"
+
     # --- Phase 6 Module 12 (Reports & Analytics) ---
     # `app/reporting/file_storage.py`'s `LocalFileStorage` fallback path,
     # used whenever `CLOUDINARY_*` above is unset -- same disclosed

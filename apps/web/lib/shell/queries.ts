@@ -39,7 +39,7 @@ export function useOrganizationQuery() {
  * `OrgSettingsResponse.default_currency` -- the one real source for how
  * every monetary figure in the app (dashboards, sales, inventory
  * valuation, invoices) should be formatted (lib/utils.ts's
- * `formatCurrency`). Never hardcode "USD" outside that function's own
+ * `formatCurrency`). Never hardcode "INR" outside that function's own
  * brief-loading-window fallback.
  */
 export function useOrgSettingsQuery() {

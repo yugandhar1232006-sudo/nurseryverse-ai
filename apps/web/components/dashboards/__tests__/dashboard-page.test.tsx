@@ -45,7 +45,7 @@ describe("DashboardPage (7D)", () => {
     signInWithPermissions(["reports:read"]);
     renderWithProviders(<DashboardPage />);
 
-    expect(await screen.findByText("$555.00")).toBeInTheDocument();
+    expect(await screen.findByText("₹555.00")).toBeInTheDocument();
     expect(screen.getByText("777")).toBeInTheDocument();
     expect(screen.getByText("Main Branch")).toBeInTheDocument();
   });
@@ -112,7 +112,7 @@ describe("DashboardPage (7D)", () => {
     await user.click(scopeSelect);
     await user.click(await screen.findByRole("option", { name: "Riverside Branch" }));
 
-    expect(await screen.findByText("$12.00")).toBeInTheDocument();
+    expect(await screen.findByText("₹12.00")).toBeInTheDocument();
   });
 
   it("scopes Plant/Inventory/Sales/Customer/AI/Financial tab requests to the selected branch via ?branch_id=", async () => {

@@ -112,3 +112,42 @@ class AssistantConversationDetailResponse(BaseModel):
     conversation: AssistantConversationResponse
     messages: list[AssistantMessageResponse]
     total_messages: int
+
+
+# ==============================================================================
+# Knowledge Articles (RAG Ingestion Pipeline)
+# ==============================================================================
+
+
+class CreateKnowledgeArticleRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    content: str = Field(..., min_length=1, max_length=50000, description="Full article text; will be chunked and embedded automatically.")
+    source_ref: str = Field(..., min_length=1, max_length=255, description="Unique slug identifying this article, e.g. 'species:ficus-lyrata-care'.")
+    tags: list[str] | None = Field(None, description="Optional tags for future filtering; not yet used in retrieval.")
+
+
+class UpdateKnowledgeArticleRequest(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=255)
+    content: str | None = Field(None, min_length=1, max_length=50000)
+    tags: list[str] | None = None
+
+
+class KnowledgeArticleResponse(BaseModel):
+    source_ref: str
+    title: str | None
+    chunk_count: int
+    created_at: str | None
+
+
+class KnowledgeArticleDetailResponse(BaseModel):
+    source_ref: str
+    title: str | None
+    chunk_count: int
+    chunks: list[dict[str, Any]]
+
+
+class KnowledgeArticleIngestResponse(BaseModel):
+    source_ref: str
+    title: str
+    chunk_count: int
+    chunk_ids: list[str]

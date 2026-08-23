@@ -739,6 +739,7 @@ class SupplierRepository(Protocol):
     """Read-only lookup for validating `Plant.supplier_id` on registration -- Suppliers & Purchasing owns the full CRUD surface (a later module)."""
 
     async def get_by_id(self, supplier_id: uuid.UUID) -> Supplier | None: ...
+    async def list_for_nursery(self, nursery_id: uuid.UUID) -> list[Supplier]: ...
 
 
 # --------------------------------------------------------------------------
@@ -1347,6 +1348,22 @@ class KnowledgeBaseChunkRepository(Protocol):
         `nursery_id = :org OR source_type = 'knowledge_article'` shape
         `search_similar` already uses), for an org-scoped admin's own view
         of what's grounding their Assistant's answers.
+        """
+        ...
+
+    # --- Added by RAG Ingestion Pipeline (Knowledge Article management) ---
+    async def delete_by_source_ref(self, source_ref: str) -> int:
+        """Delete all chunks with the given source_ref. Returns count deleted."""
+        ...
+
+    async def get_by_source_ref(self, source_ref: str) -> list[KnowledgeBaseChunk]:
+        """Return all chunks for a given source_ref, ordered by created_at."""
+        ...
+
+    async def list_distinct_articles(self, *, offset: int = 0, limit: int = 50) -> list[dict]:
+        """
+        List distinct knowledge articles (grouped by source_ref).
+        Returns `[{"source_ref": ..., "title": ..., "chunk_count": ..., "first_created": ...}, ...]`.
         """
         ...
 

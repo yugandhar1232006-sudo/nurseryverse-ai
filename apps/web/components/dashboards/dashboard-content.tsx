@@ -35,7 +35,7 @@ export function DashboardContent() {
   const [scope, setScope] = React.useState<string>(ALL_BRANCHES);
 
   const branches = branchesQuery.data ?? [];
-  const currency = orgSettingsQuery.data?.default_currency ?? "USD";
+  const currency = orgSettingsQuery.data?.default_currency ?? "INR";
   const scopeBranchId = scope === ALL_BRANCHES ? null : scope;
   const dateRange = React.useMemo(() => ({}), []); // no explicit date filter chosen yet -- backend default (trailing period) applies
 

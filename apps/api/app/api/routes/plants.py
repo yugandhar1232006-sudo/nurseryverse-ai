@@ -102,6 +102,7 @@ def _register_kwargs(body: RegisterPlantRequest) -> dict:
         "common_label": body.common_label, "zone": body.zone, "batch_number": body.batch_number,
         "supplier_id": body.supplier_id, "purchase_price": body.purchase_price,
         "purchase_date": body.purchase_date, "price": body.price, "planted_at": body.planted_at,
+        "description": body.description,
     }
 
 
@@ -264,7 +265,8 @@ async def update_plant(
     plant = await plant_service.update_plant_profile(
         plant_id=id, actor_user_id=user.id, common_label=body.common_label, variety_id=body.variety_id,
         batch_number=body.batch_number, supplier_id=body.supplier_id, purchase_price=body.purchase_price,
-        purchase_date=body.purchase_date, price=body.price, request_id=request_context(request).request_id,
+        purchase_date=body.purchase_date, price=body.price, description=body.description,
+        request_id=request_context(request).request_id,
     )
     return PlantResponse.model_validate(plant)
 

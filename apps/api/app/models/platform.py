@@ -90,7 +90,7 @@ class OrgSettings(UUIDPKMixin, TenantMixin, Base):
     # table the way `status` (a lifecycle concern) needed to live on
     # `Nursery` directly.
     default_currency: Mapped[str] = mapped_column(
-        String(3), nullable=False, default="USD", server_default="USD"
+        String(3), nullable=False, default="INR", server_default="INR"
     )  # ISO 4217
     default_timezone: Mapped[str] = mapped_column(
         String(64), nullable=False, default="UTC", server_default="UTC"

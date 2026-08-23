@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Boxes, DollarSign, Package } from "lucide-react";
+import { AlertTriangle, Boxes, IndianRupee, Package } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
@@ -40,7 +40,7 @@ export function InventoryTab({ branchId, currency }: { branchId: string | null; 
         <KpiCard
           label="Inventory value"
           value={data ? formatCurrency(data.total_inventory_value, currency) : ""}
-          icon={DollarSign}
+          icon={IndianRupee}
           tone="success"
           loading={query.isLoading}
         />

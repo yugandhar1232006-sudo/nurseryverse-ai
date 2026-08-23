@@ -72,13 +72,13 @@ export function InvoicePanel({ invoiceId }: { invoiceId: string }) {
         </div>
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-body-sm text-muted-foreground">
           <span>
-            Total: <span className="text-foreground">${Number(invoice.total_amount).toFixed(2)}</span>
+            Total: <span className="text-foreground">₹{Number(invoice.total_amount).toFixed(2)}</span>
           </span>
           <span>
-            Paid: <span className="text-foreground">${Number(invoice.amount_paid).toFixed(2)}</span>
+            Paid: <span className="text-foreground">₹{Number(invoice.amount_paid).toFixed(2)}</span>
           </span>
           <span>
-            Remaining: <span className="text-foreground">${remaining.toFixed(2)}</span>
+            Remaining: <span className="text-foreground">₹{remaining.toFixed(2)}</span>
           </span>
         </div>
         {invoice.status !== "void" && remaining > 0 && (
@@ -111,8 +111,8 @@ export function InvoicePanel({ invoiceId }: { invoiceId: string }) {
                 <TableRow key={item.id}>
                   <TableCell className="text-foreground">{item.description}</TableCell>
                   <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right">${Number(item.unit_price).toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-medium text-foreground">${Number(item.line_total).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">₹{Number(item.unit_price).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium text-foreground">₹{Number(item.line_total).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -131,7 +131,7 @@ export function InvoicePanel({ invoiceId }: { invoiceId: string }) {
             {paymentsQuery.data.map((payment) => (
               <li key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 text-body-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-foreground">${Number(payment.amount).toFixed(2)}</span>
+                  <span className="font-medium text-foreground">₹{Number(payment.amount).toFixed(2)}</span>
                   <Badge tone="neutral" className="capitalize">
                     {payment.method}
                   </Badge>

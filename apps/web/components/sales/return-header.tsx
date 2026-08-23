@@ -104,7 +104,7 @@ export function ReturnHeader({ ret }: { ret: ReturnResponse }) {
                   <TableCell className="text-right">{item.quantity}</TableCell>
                   <TableCell className="text-muted-foreground">{item.restock ? "Yes" : "No"}</TableCell>
                   <TableCell className="capitalize text-muted-foreground">{item.condition}</TableCell>
-                  <TableCell className="text-right font-medium text-foreground">${Number(item.line_refund_amount).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium text-foreground">₹{Number(item.line_refund_amount).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

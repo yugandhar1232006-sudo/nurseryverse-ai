@@ -607,7 +607,7 @@ class HealthCheckService:
             cache_reachable=cache_reachable,
             cache_backend=type(self._cache).__name__,
             storage_configured=bool(self._settings.CLOUDINARY_CLOUD_NAME),
-            ai_anthropic_configured=bool(self._settings.ANTHROPIC_API_KEY),
+            ai_anthropic_configured=bool(self._settings.ANTHROPIC_API_KEY) or self._settings.LLM_PROVIDER == "ollama",
             ai_model_artifacts_configured=bool(self._settings.MODEL_ARTIFACT_BASE_PATH),
             notifications_email_configured=bool(self._settings.SMTP_HOST),
             notifications_sms_configured=bool(self._settings.SMS_PROVIDER_API_KEY),

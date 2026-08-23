@@ -28,7 +28,12 @@ export const registerPlantSchema = z.object({
   common_label: z.string().max(255).optional().or(z.literal("")),
   zone: z.string().max(100).optional().or(z.literal("")),
   batch_number: z.string().max(100).optional().or(z.literal("")),
+  supplier_id: z.string().optional().or(z.literal("")),
+  purchase_price: optionalNonNegative("Enter a purchase price, 0 or more."),
+  purchase_date: z.string().optional().or(z.literal("")),
+  planted_at: z.string().optional().or(z.literal("")),
   price: optionalNonNegative("Enter a price, 0 or more."),
+  description: z.string().max(5000).optional().or(z.literal("")),
 });
 export type RegisterPlantFormValues = z.infer<typeof registerPlantSchema>;
 
@@ -59,7 +64,11 @@ export const updatePlantProfileSchema = z.object({
   common_label: z.string().max(255).optional().or(z.literal("")),
   variety_id: z.string().optional().or(z.literal("")),
   batch_number: z.string().max(100).optional().or(z.literal("")),
+  supplier_id: z.string().optional().or(z.literal("")),
+  purchase_price: optionalNonNegative("Enter a purchase price, 0 or more."),
+  purchase_date: z.string().optional().or(z.literal("")),
   price: optionalNonNegative("Enter a price, 0 or more."),
+  description: z.string().max(5000).optional().or(z.literal("")),
 });
 export type UpdatePlantProfileFormValues = z.infer<typeof updatePlantProfileSchema>;
 

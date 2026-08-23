@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BarChart3, DollarSign, Receipt, ShoppingBag, TrendingUp } from "lucide-react";
+import { BarChart3, IndianRupee, Receipt, ShoppingBag, TrendingUp } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
@@ -81,10 +81,10 @@ function SummaryReport({ branchId }: { branchId: string | undefined }) {
 
   const cards = [
     { label: "Sales", value: report.sale_count, icon: ShoppingBag },
-    { label: "Total revenue", value: `$${report.total_revenue.toFixed(2)}`, icon: DollarSign },
-    { label: "Total tax", value: `$${report.total_tax.toFixed(2)}`, icon: Receipt },
-    { label: "Total discount", value: `$${report.total_discount.toFixed(2)}`, icon: Receipt },
-    { label: "Average sale value", value: `$${report.average_sale_value.toFixed(2)}`, icon: BarChart3 },
+    { label: "Total revenue", value: `₹${report.total_revenue.toFixed(2)}`, icon: IndianRupee },
+    { label: "Total tax", value: `₹${report.total_tax.toFixed(2)}`, icon: Receipt },
+    { label: "Total discount", value: `₹${report.total_discount.toFixed(2)}`, icon: Receipt },
+    { label: "Average sale value", value: `₹${report.average_sale_value.toFixed(2)}`, icon: BarChart3 },
   ];
 
   return (
@@ -121,7 +121,7 @@ function RevenueReport({ branchId }: { branchId: string | undefined }) {
         {rows.map((row) => (
           <TableRow key={row.date}>
             <TableCell className="text-foreground">{row.date}</TableCell>
-            <TableCell className="text-right font-medium text-foreground">${row.revenue.toFixed(2)}</TableCell>
+            <TableCell className="text-right font-medium text-foreground">₹{row.revenue.toFixed(2)}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -154,8 +154,8 @@ function TopCustomersReport({ branchId }: { branchId: string | undefined }) {
           <TableRow key={row.customer_id}>
             <TableCell className="text-foreground">{row.name}</TableCell>
             <TableCell className="text-right">{row.total_orders}</TableCell>
-            <TableCell className="text-right font-medium text-foreground">${row.total_spent.toFixed(2)}</TableCell>
-            <TableCell className="text-right text-muted-foreground">${row.average_order_value.toFixed(2)}</TableCell>
+            <TableCell className="text-right font-medium text-foreground">₹{row.total_spent.toFixed(2)}</TableCell>
+            <TableCell className="text-right text-muted-foreground">₹{row.average_order_value.toFixed(2)}</TableCell>
           </TableRow>
         ))}
       </TableBody>

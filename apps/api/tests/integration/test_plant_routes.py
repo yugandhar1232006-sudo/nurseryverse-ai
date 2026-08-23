@@ -317,3 +317,154 @@ async def test_get_plant_timeline(authenticated_client, harness):
     body = response.json()
     assert body["meta"]["total_items"] == 1
     assert body["items"][0]["event_type"] == "plant.registered"
+
+
+# -----------------------------------------------------------------------
+# Plant Description, Supplier & Purchase Info Tests
+# -----------------------------------------------------------------------
+
+
+async def test_register_plant_with_description(authenticated_client, harness):
+    ac, user = authenticated_client
+    org_id = uuid.uuid4()
+    branch = _branch(nursery_id=org_id)
+    species = _species(nursery_id=org_id)
+    harness.branches.branches[branch.id] = branch
+    harness.species.species[species.id] = species
+    harness.grant_role(user, org_id=org_id, role_code="owner", permission_codes=["plants:read", "plants:write"])
+
+    response = await ac.post(
+        "/api/v1/plants",
+        json={
+            "branch_id": str(branch.id),
+            "species_id": str(species.id),
+            "common_label": "Fig with description",
+            "description": "Heirloom variety, slow grower",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["description"] == "Heirloom variety, slow grower"
+
+
+async def test_register_plant_with_purchase_info(authenticated_client, harness):
+    ac, user = authenticated_client
+    org_id = uuid.uuid4()
+    branch = _branch(nursery_id=org_id)
+    species = _species(nursery_id=org_id)
+    harness.branches.branches[branch.id] = branch
+    harness.species.species[species.id] = species
+    harness.grant_role(user, org_id=org_id, role_code="owner", permission_codes=["plants:read", "plants:write"])
+
+    response = await ac.post(
+        "/api/v1/plants",
+        json={
+            "branch_id": str(branch.id),
+            "species_id": str(species.id),
+            "purchase_price": 12.50,
+            "purchase_date": "2026-03-15T00:00:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["purchase_price"] == 12.50
+    assert body["purchase_date"] is not None
+
+
+async def test_update_plant_profile_with_description(authenticated_client, harness):
+    ac, user = authenticated_client
+    org_id = uuid.uuid4()
+    branch = _branch(nursery_id=org_id)
+    species = _species(nursery_id=org_id)
+    harness.branches.branches[branch.id] = branch
+    harness.species.species[species.id] = species
+    plant = await harness.plant_service.register_plant(
+        nursery_id=org_id, branch_id=branch.id, species_id=species.id, actor_user_id=uuid.uuid4()
+    )
+    harness.grant_role(user, org_id=org_id, role_code="owner", permission_codes=["plants:read", "plants:write"])
+
+    response = await ac.patch(
+        f"/api/v1/plants/{plant.id}",
+        json={"description": "Updated description", "purchase_price": 25.00},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["description"] == "Updated description"
+    assert body["purchase_price"] == 25.00
+
+
+async def test_update_plant_profile_clear_description(authenticated_client, harness):
+    """Sending description=None in a PATCH means 'leave unchanged' (the standard PATCH convention).
+    To clear description, the caller must send a non-None value like an empty string."""
+    ac, user = authenticated_client
+    org_id = uuid.uuid4()
+    branch = _branch(nursery_id=org_id)
+    species = _species(nursery_id=org_id)
+    harness.branches.branches[branch.id] = branch
+    harness.species.species[species.id] = species
+    plant = await harness.plant_service.register_plant(
+        nursery_id=org_id, branch_id=branch.id, species_id=species.id,
+        actor_user_id=uuid.uuid4(), description="Keep me",
+    )
+    harness.grant_role(user, org_id=org_id, role_code="owner", permission_codes=["plants:read", "plants:write"])
+
+    # Sending null means "leave unchanged" -- description should remain.
+    response = await ac.patch(
+        f"/api/v1/plants/{plant.id}",
+        json={"common_label": "Updated"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["description"] == "Keep me"
+
+    # Sending empty string should clear it.
+    response = await ac.patch(
+        f"/api/v1/plants/{plant.id}",
+        json={"description": ""},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["description"] == ""
+
+
+# -----------------------------------------------------------------------
+# Suppliers Endpoint Tests
+# -----------------------------------------------------------------------
+
+
+async def test_list_suppliers_empty(authenticated_client, harness):
+    ac, user = authenticated_client
+    org_id = uuid.uuid4()
+    harness.grant_role(user, org_id=org_id, role_code="owner", permission_codes=["plants:read"])
+
+    response = await ac.get("/api/v1/suppliers")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_list_suppliers_returns_seeded_suppliers(authenticated_client, harness):
+    ac, user = authenticated_client
+    org_id = uuid.uuid4()
+    branch = _branch(nursery_id=org_id)
+    harness.branches.branches[branch.id] = branch
+    harness.grant_role(user, org_id=org_id, role_code="owner", permission_codes=["plants:read"])
+
+    from app.models.purchasing import Supplier
+    now = datetime.now(timezone.utc)
+    supplier = Supplier(
+        id=uuid.uuid4(), nursery_id=org_id, branch_id=branch.id,
+        name="Test Growers Inc.", email="test@growers.com",
+        created_at=now, updated_at=now,
+    )
+    harness.suppliers.suppliers[supplier.id] = supplier
+
+    response = await ac.get("/api/v1/suppliers")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["name"] == "Test Growers Inc."

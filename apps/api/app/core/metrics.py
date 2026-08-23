@@ -72,7 +72,17 @@ def route_template(request) -> str:
     path has no template to report, and the raw 404 path space is bounded
     by whatever an attacker/typo throws at the API, not by real traffic
     volume, so the cardinality concern doesn't apply there.
+
+    FastAPI 0.141.1+ stores the fully-qualified path template in
+    ``scope["fastapi"]["effective_route_context"].path``, which includes
+    all ancestor router prefixes (e.g. ``/api/v1/employees/{id}`` rather
+    than just ``/{id}``). We prefer that over ``scope["route"].path``
+    which only carries the local sub-router path.
     """
+    fastapi_scope = request.scope.get("fastapi", {})
+    effective_ctx = fastapi_scope.get("effective_route_context") if isinstance(fastapi_scope, dict) else getattr(fastapi_scope, "effective_route_context", None)
+    if effective_ctx is not None and getattr(effective_ctx, "path", None):
+        return effective_ctx.path
     route = request.scope.get("route")
     if route is not None and getattr(route, "path", None):
         return route.path

@@ -45,7 +45,7 @@ export default function AiCenterPage() {
   const [scope, setScope] = React.useState<string>(ALL_BRANCHES);
 
   const branches = branchesQuery.data ?? [];
-  const currency = orgSettingsQuery.data?.default_currency ?? "USD";
+  const currency = orgSettingsQuery.data?.default_currency ?? "INR";
   const scopeBranchId = scope === ALL_BRANCHES ? null : scope;
 
   return (

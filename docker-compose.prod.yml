@@ -56,6 +56,13 @@ services:
       APP_ENV: production
       APP_DEBUG: "false"
       WEB_CONCURRENCY: ${API_WEB_CONCURRENCY:-4}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-voyage}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
     volumes: !override []  # no bind mounts -- the built image is the deployable artifact, per the architecture doc quoted above
     ports: !override []  # only nginx is reachable from outside the Compose network
     restart: unless-stopped

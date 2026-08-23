@@ -52,7 +52,7 @@ export function PurchaseHistoryTab({ customerId }: { customerId: string }) {
                   {sale.status}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right font-medium text-foreground">${Number(sale.total_amount).toFixed(2)}</TableCell>
+              <TableCell className="text-right font-medium text-foreground">₹{Number(sale.total_amount).toFixed(2)}</TableCell>
             </TableRow>
           ))}
         </TableBody>

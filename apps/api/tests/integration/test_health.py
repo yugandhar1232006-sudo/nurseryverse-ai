@@ -75,9 +75,35 @@ async def test_unhandled_exception_still_carries_request_id():
     async def _boom():
         raise RuntimeError("simulated unhandled failure")
 
-    for route in app.routes:
-        if getattr(route, "path", None) == "/healthz":
-            route.dependant.call = _boom
+    # FastAPI 0.141.1's APIRoute.handle() calls get_route_handler() at
+    # *request* time and resolves the _EffectiveRouteContext from the ASGI
+    # scope.  get_route_handler() then uses that context's own Dependant
+    # (NOT the APIRoute's route.dependant) to build the request handler.
+    # _EffectiveRouteContext.from_api_route() creates a fresh Dependant
+    # via _populate_api_route_state(), so patching route.dependant.call
+    # on the APIRoute itself is invisible to the runtime path.  Walk the
+    # _IncludedRouter tree to find and patch the per-app-instance
+    # _EffectiveRouteContext's dependant.call instead.
+    from fastapi.routing import _EffectiveRouteContext, _IncludedRouter
+
+    def _patch_effective_context(routes, target_path):
+        for r in routes:
+            if isinstance(r, _IncludedRouter):
+                for candidate in r.effective_candidates():
+                    if isinstance(candidate, _EffectiveRouteContext):
+                        if getattr(candidate.original_route, "path", None) == target_path:
+                            candidate.dependant.call = _boom
+                            return True
+                    elif isinstance(candidate, _IncludedRouter):
+                        if _patch_effective_context(
+                            [candidate], target_path,
+                        ):
+                            return True
+        return False
+
+    assert _patch_effective_context(app.routes, "/healthz"), (
+        "could not locate /healthz _EffectiveRouteContext in app"
+    )
 
     # Starlette's ServerErrorMiddleware sends the 500 response *and*
     # re-raises the original exception afterwards (so it still surfaces

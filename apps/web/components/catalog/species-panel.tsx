@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Leaf, Plus, Search } from "lucide-react";
+import { Leaf, Plus, Search, LayoutGrid, List, Sun, Droplets, Thermometer, Mountain } from "lucide-react";
 
 import {
   AlertDialog,
@@ -32,6 +32,24 @@ import type { SpeciesResponse } from "@/lib/api/catalog";
 const ALL_CATEGORIES = "__all__";
 const DEBOUNCE_MS = 300;
 
+const CATEGORY_COLORS: Record<string, string> = {
+  herb: "bg-emerald-100 text-emerald-800",
+  annual_flower: "bg-pink-100 text-pink-800",
+  perennial_flower: "bg-purple-100 text-purple-800",
+  shrub: "bg-amber-100 text-amber-800",
+  tree: "bg-green-100 text-green-800",
+  fruit: "bg-red-100 text-red-800",
+  vegetable_start: "bg-lime-100 text-lime-800",
+  houseplant: "bg-teal-100 text-teal-800",
+  ornamental_grass: "bg-yellow-100 text-yellow-800",
+  succulent_cactus: "bg-orange-100 text-orange-800",
+  vine_climber: "bg-indigo-100 text-indigo-800",
+  fern: "bg-cyan-100 text-cyan-800",
+  bulb: "bg-fuchsia-100 text-fuchsia-800",
+};
+
+type ViewMode = "grid" | "table";
+
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = React.useState(value);
   React.useEffect(() => {
@@ -39,6 +57,96 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
     return () => clearTimeout(timer);
   }, [value, delayMs]);
   return debounced;
+}
+
+function SpeciesCard({
+  species,
+  categoryCode,
+  categoryName,
+  onClick,
+  onEdit,
+  onDelete,
+}: {
+  species: SpeciesResponse;
+  categoryCode?: string;
+  categoryName?: string;
+  onClick: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const catColor = categoryCode ? CATEGORY_COLORS[categoryCode] ?? "bg-gray-100 text-gray-800" : "bg-gray-100 text-gray-800";
+
+  return (
+    <div
+      className="group cursor-pointer rounded-xl border bg-card p-4 transition-shadow hover:shadow-md"
+      onClick={onClick}
+    >
+      <div className="mb-3 flex items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate font-semibold text-foreground group-hover:underline">
+            {species.common_name}
+          </h3>
+          <p className="truncate text-sm italic text-muted-foreground">
+            {species.botanical_name}
+          </p>
+        </div>
+      </div>
+
+      {categoryName && (
+        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${catColor}`}>
+          {categoryName}
+        </span>
+      )}
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+        {species.light_requirement && (
+          <span className="flex items-center gap-1">
+            <Sun className="size-3 text-amber-500" aria-hidden="true" />
+            {species.light_requirement}
+          </span>
+        )}
+        {species.water_baseline_ml_per_week != null && (
+          <span className="flex items-center gap-1">
+            <Droplets className="size-3 text-blue-500" aria-hidden="true" />
+            {species.water_baseline_ml_per_week} ml/wk
+          </span>
+        )}
+        {species.soil_type && (
+          <span className="flex items-center gap-1">
+            <Mountain className="size-3 text-amber-700" aria-hidden="true" />
+            {species.soil_type}
+          </span>
+        )}
+        {species.temperature_min_celsius != null && species.temperature_max_celsius != null && (
+          <span className="flex items-center gap-1">
+            <Thermometer className="size-3 text-red-500" aria-hidden="true" />
+            {species.temperature_min_celsius}\u00B0{species.temperature_max_celsius}\u00B0C
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 border-t pt-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={(e) => { e.stopPropagation(); onEdit(); }}
+        >
+          Edit
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs text-destructive hover:text-destructive"
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        >
+          Archive
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -51,12 +159,9 @@ export function SpeciesPanel() {
   const [page, setPage] = React.useState(1);
   const [rawSearch, setRawSearch] = React.useState("");
   const [categoryId, setCategoryId] = React.useState(ALL_CATEGORIES);
+  const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
   const search = useDebouncedValue(rawSearch, DEBOUNCE_MS);
 
-  // React's "adjusting state when a prop changes" pattern (not an Effect):
-  // reset to page 1 whenever the *filters themselves* change, without the
-  // cascading extra render an Effect-based setState would cause (same
-  // pattern as employee-detail-dialog.tsx's `syncedPermsData`).
   const [syncedFilters, setSyncedFilters] = React.useState({ search, categoryId });
   if (syncedFilters.search !== search || syncedFilters.categoryId !== categoryId) {
     setSyncedFilters({ search, categoryId });
@@ -80,24 +185,51 @@ export function SpeciesPanel() {
   const items = query.data?.items ?? [];
   const meta = query.data?.meta;
   const categoryNameById = new Map((categoriesQuery.data ?? []).map((c) => [c.id, c.name]));
+  const categoryCodeById = new Map((categoriesQuery.data ?? []).map((c) => [c.id, c.code]));
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Species catalog</CardTitle>
-        <PermissionGate permission="species:write">
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => {
-              setEditingSpecies(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="size-4" aria-hidden="true" />
-            Add species
-          </Button>
-        </PermissionGate>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border">
+            <button
+              type="button"
+              className={`flex items-center gap-1 rounded-l-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                viewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+              }`}
+              onClick={() => setViewMode("grid")}
+              aria-label="Grid view"
+            >
+              <LayoutGrid className="size-3.5" />
+              Grid
+            </button>
+            <button
+              type="button"
+              className={`flex items-center gap-1 rounded-r-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                viewMode === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+              }`}
+              onClick={() => setViewMode("table")}
+              aria-label="Table view"
+            >
+              <List className="size-3.5" />
+              Table
+            </button>
+          </div>
+          <PermissionGate permission="species:write">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setEditingSpecies(null);
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              Add species
+            </Button>
+          </PermissionGate>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-2 tablet:flex-row">
@@ -127,9 +259,13 @@ export function SpeciesPanel() {
         </div>
 
         {query.isLoading ? (
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
+          <div className={viewMode === "grid" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2"}>
+            {Array.from({ length: viewMode === "grid" ? 6 : 5 }).map((_, i) => (
+              viewMode === "grid" ? (
+                <Skeleton key={i} className="h-44 rounded-xl" />
+              ) : (
+                <Skeleton key={i} className="h-10 w-full" />
+              )
             ))}
           </div>
         ) : query.isError ? (
@@ -146,55 +282,71 @@ export function SpeciesPanel() {
           />
         ) : (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Common name</TableHead>
-                  <TableHead>Botanical name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Light</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            {viewMode === "grid" ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map((species) => (
-                  <TableRow key={species.id} className="cursor-pointer" onClick={() => setDetailSpecies(species)}>
-                    <TableCell className="font-medium text-foreground">{species.common_name}</TableCell>
-                    <TableCell className="italic text-muted-foreground">{species.botanical_name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{categoryNameById.get(species.category_id) ?? "—"}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{species.light_requirement ?? "—"}</TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <PermissionGate permission="species:write">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditingSpecies(species);
-                            setFormOpen(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                      </PermissionGate>
-                      <PermissionGate permission="species:delete">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setArchivingSpecies(species)}
-                        >
-                          Archive
-                        </Button>
-                      </PermissionGate>
-                    </TableCell>
-                  </TableRow>
+                  <SpeciesCard
+                    key={species.id}
+                    species={species}
+                    categoryCode={categoryCodeById.get(species.category_id)}
+                    categoryName={categoryNameById.get(species.category_id)}
+                    onClick={() => setDetailSpecies(species)}
+                    onEdit={() => { setEditingSpecies(species); setFormOpen(true); }}
+                    onDelete={() => setArchivingSpecies(species)}
+                  />
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Common name</TableHead>
+                    <TableHead>Botanical name</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Light</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((species) => (
+                    <TableRow key={species.id} className="cursor-pointer" onClick={() => setDetailSpecies(species)}>
+                      <TableCell className="font-medium text-foreground">{species.common_name}</TableCell>
+                      <TableCell className="italic text-muted-foreground">{species.botanical_name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{categoryNameById.get(species.category_id) ?? "\u2014"}</Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{species.light_requirement ?? "\u2014"}</TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <PermissionGate permission="species:write">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingSpecies(species);
+                              setFormOpen(true);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        </PermissionGate>
+                        <PermissionGate permission="species:delete">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setArchivingSpecies(species)}
+                          >
+                            Archive
+                          </Button>
+                        </PermissionGate>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
 
             {meta && meta.total_pages > 1 && (
               <div className="flex items-center justify-between text-body-sm text-muted-foreground">

@@ -24,7 +24,7 @@ export const orgProfileSchema = z.object({
 export type OrgProfileFormValues = z.infer<typeof orgProfileSchema>;
 
 export const orgSettingsSchema = z.object({
-  currency: z.string().length(3, "Use a 3-letter ISO 4217 code, e.g. USD.").toUpperCase(),
+  currency: z.string().length(3, "Use a 3-letter ISO 4217 code, e.g. INR.").toUpperCase(),
   timezone: z.string().min(1, "Timezone is required."),
   branding_primary_color: z
     .string()
@@ -53,7 +53,7 @@ export const branchSchema = z.object({
   city: z.string().min(1, "City is required.").max(120),
   region: z.string().max(120).optional().or(z.literal("")),
   postal_code: z.string().max(20).optional().or(z.literal("")),
-  country: z.string().length(2, "Use a 2-letter ISO 3166-1 country code, e.g. US.").toUpperCase(),
+  country: z.string().length(2, "Use a 2-letter ISO 3166-1 country code, e.g. IN.").toUpperCase(),
   timezone: z.string().min(1, "Timezone is required."),
   phone: z.string().max(50).optional().or(z.literal("")),
   email: z.string().email("Enter a valid email address.").optional().or(z.literal("")),

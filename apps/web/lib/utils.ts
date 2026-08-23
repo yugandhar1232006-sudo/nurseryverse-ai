@@ -16,11 +16,11 @@ export function cn(...inputs: ClassValue[]) {
  * (dashboard/analytics/sales/inventory-valuation responses, etc.) --
  * `currencyCode` should always come from `OrgSettingsResponse.default_currency`
  * (see lib/api/organizations.ts), never assumed, since NurseryVerse is
- * multi-currency across orgs. Falls back to "USD" only for the brief
+ * multi-currency across orgs. Falls back to "INR" only for the brief
  * window before that org settings query resolves -- never a silent
  * guess presented as final.
  */
-export function formatCurrency(value: number, currencyCode = "USD"): string {
+export function formatCurrency(value: number, currencyCode = "INR"): string {
   try {
     return new Intl.NumberFormat(undefined, { style: "currency", currency: currencyCode, maximumFractionDigits: 2 }).format(value);
   } catch {

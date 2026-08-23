@@ -35,16 +35,16 @@ export function SaleHeader({ sale }: { sale: SaleResponse }) {
 
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-body-sm text-muted-foreground">
           <span>
-            Subtotal: <span className="text-foreground">${Number(sale.subtotal_amount).toFixed(2)}</span>
+            Subtotal: <span className="text-foreground">₹{Number(sale.subtotal_amount).toFixed(2)}</span>
           </span>
           <span>
-            Discount: <span className="text-foreground">${Number(sale.discount_amount).toFixed(2)}</span>
+            Discount: <span className="text-foreground">₹{Number(sale.discount_amount).toFixed(2)}</span>
           </span>
           <span>
-            Tax: <span className="text-foreground">${Number(sale.tax_amount).toFixed(2)}</span>
+            Tax: <span className="text-foreground">₹{Number(sale.tax_amount).toFixed(2)}</span>
           </span>
           <span>
-            Total: <span className="text-foreground">${Number(sale.total_amount).toFixed(2)}</span>
+            Total: <span className="text-foreground">₹{Number(sale.total_amount).toFixed(2)}</span>
           </span>
           {sale.payment_method && <span>Payment method: {sale.payment_method}</span>}
           <span>{new Date(sale.created_at).toLocaleString()}</span>
@@ -78,8 +78,8 @@ export function SaleHeader({ sale }: { sale: SaleResponse }) {
               {(itemsQuery.data ?? []).map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right">${Number(item.unit_price).toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-medium text-foreground">${Number(item.line_total).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">₹{Number(item.unit_price).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium text-foreground">₹{Number(item.line_total).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

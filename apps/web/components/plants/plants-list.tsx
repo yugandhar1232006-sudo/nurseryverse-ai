@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Leaf, Plus, Search } from "lucide-react";
+import { Leaf, Plus, Search, Pencil, Archive, LayoutGrid, List, Sun, Droplets } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,10 +15,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlantStatusBadge } from "@/components/plants/plant-status-badge";
 import { RegisterPlantDialog } from "@/components/plants/register-plant-dialog";
+import { EditPlantDialog } from "@/components/plants/edit-plant-dialog";
+import { ArchivePlantDialog } from "@/components/plants/archive-plant-dialog";
 import { useBranchesQuery } from "@/lib/shell/queries";
-import { useSpeciesListQuery } from "@/lib/catalog/queries";
+import { useSpeciesListQuery, usePlantCategoriesQuery } from "@/lib/catalog/queries";
+import { useSuppliersQuery } from "@/lib/suppliers/queries";
 import { usePlantsListQuery } from "@/lib/plants/queries";
-import type { PlantStatus } from "@/lib/api/plants";
+import type { PlantStatus, PlantResponse } from "@/lib/api/plants";
+import type { SpeciesResponse } from "@/lib/api/catalog";
 
 const ALL = "__all__";
 const DEBOUNCE_MS = 300;
@@ -31,6 +35,56 @@ const STATUS_OPTIONS: { value: PlantStatus; label: string }[] = [
   { value: "deceased", label: "Deceased" },
 ];
 
+const CATEGORY_COLORS: Record<string, string> = {
+  herb: "bg-emerald-100 text-emerald-800",
+  annual_flower: "bg-pink-100 text-pink-800",
+  perennial_flower: "bg-purple-100 text-purple-800",
+  shrub: "bg-amber-100 text-amber-800",
+  tree: "bg-green-100 text-green-800",
+  fruit: "bg-red-100 text-red-800",
+  vegetable_start: "bg-lime-100 text-lime-800",
+  houseplant: "bg-teal-100 text-teal-800",
+  ornamental_grass: "bg-yellow-100 text-yellow-800",
+  succulent_cactus: "bg-orange-100 text-orange-800",
+  vine_climber: "bg-indigo-100 text-indigo-800",
+  fern: "bg-cyan-100 text-cyan-800",
+  bulb: "bg-fuchsia-100 text-fuchsia-800",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  herb: "Herb",
+  annual_flower: "Annual",
+  perennial_flower: "Perennial",
+  shrub: "Shrub",
+  tree: "Tree",
+  fruit: "Fruit",
+  vegetable_start: "Vegetable",
+  houseplant: "Houseplant",
+  ornamental_grass: "Grass",
+  succulent_cactus: "Succulent",
+  vine_climber: "Vine",
+  fern: "Fern",
+  bulb: "Bulb",
+};
+
+const SPECIES_EMOJI: Record<string, string> = {
+  herb: "\uD83C\uDF3F",
+  annual_flower: "\uD83C\uDF38",
+  perennial_flower: "\uD83C\uDF3B",
+  shrub: "\uD83C\uDF33",
+  tree: "\uD83C\uDF32",
+  fruit: "\uD83C\uDF4E",
+  vegetable_start: "\uD83E\uDD51",
+  houseplant: "\uD83C\uDF31",
+  ornamental_grass: "\uD83C\uDF3E",
+  succulent_cactus: "\uD83C\uDF35",
+  vine_climber: "\uD83C\uDF37",
+  fern: "\uD83C\uDF3F",
+  bulb: "\uD83C\uDF3C",
+};
+
+type ViewMode = "grid" | "table";
+
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = React.useState(value);
   React.useEffect(() => {
@@ -40,15 +94,79 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-/**
- * The 7G `/plants` screen -- the individual-plant-record counterpart to
- * 7F's Species Catalog. `Plant` is branch-scoped (see lib/api/plants.ts's
- * docstring), but this list intentionally does not filter by the
- * caller's own branch access client-side: the backend's `plants:read`
- * scoping already limits what `GET /plants` returns for a Branch-scoped
- * role, so an extra client-side filter would only risk drifting out of
- * sync with the real authorization rule.
- */
+function PlantCard({
+  plant,
+  species,
+  branchName,
+  categoryIdToCode,
+  onClick,
+}: {
+  plant: PlantResponse;
+  species?: SpeciesResponse;
+  branchName?: string;
+  categoryIdToCode: Map<string, string>;
+  onClick: () => void;
+}) {
+  const catCode = species ? categoryIdToCode.get(species.category_id) : undefined;
+  const catColor = catCode ? CATEGORY_COLORS[catCode] ?? "bg-gray-100 text-gray-800" : "bg-gray-100 text-gray-800";
+  const catLabel = catCode ? CATEGORY_LABELS[catCode] ?? catCode : undefined;
+  const emoji = catCode ? SPECIES_EMOJI[catCode] ?? "\uD83C\uDF31" : "\uD83C\uDF31";
+
+  return (
+    <div
+      className="group cursor-pointer rounded-xl border bg-card p-4 transition-shadow hover:shadow-md"
+      onClick={onClick}
+    >
+      <div className="mb-3 flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl" aria-hidden="true">{emoji}</span>
+          <div className="min-w-0">
+            <h3 className="truncate font-semibold text-foreground group-hover:underline">
+              {plant.common_label ?? "Unlabeled"}
+            </h3>
+            <p className="truncate text-sm text-muted-foreground">
+              {species?.common_name ?? "Unknown species"}
+            </p>
+          </div>
+        </div>
+        <PlantStatusBadge status={plant.status} />
+      </div>
+
+      {catLabel && (
+        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${catColor}`}>
+          {catLabel}
+        </span>
+      )}
+
+      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+        {species?.light_requirement && (
+          <span className="flex items-center gap-1">
+            <Sun className="size-3" aria-hidden="true" />
+            {species.light_requirement}
+          </span>
+        )}
+        {species?.water_baseline_ml_per_week != null && (
+          <span className="flex items-center gap-1">
+            <Droplets className="size-3" aria-hidden="true" />
+            {species.water_baseline_ml_per_week} ml/wk
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+        <span>{branchName ?? "—"}</span>
+        <span>{plant.age_days}d old</span>
+      </div>
+
+      {plant.price != null && (
+        <div className="mt-2 text-sm font-medium text-foreground">
+          ₹{plant.price.toFixed(2)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PlantsList() {
   const router = useRouter();
   const [page, setPage] = React.useState(1);
@@ -56,6 +174,7 @@ export function PlantsList() {
   const [branchId, setBranchId] = React.useState(ALL);
   const [speciesId, setSpeciesId] = React.useState(ALL);
   const [status, setStatus] = React.useState(ALL);
+  const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
   const search = useDebouncedValue(rawSearch, DEBOUNCE_MS);
 
   const [syncedFilters, setSyncedFilters] = React.useState({ search, branchId, speciesId, status });
@@ -71,6 +190,8 @@ export function PlantsList() {
 
   const branchesQuery = useBranchesQuery();
   const speciesQuery = useSpeciesListQuery({ page: 1, page_size: 100 });
+  const categoriesQuery = usePlantCategoriesQuery();
+  const suppliersQuery = useSuppliersQuery();
   const query = usePlantsListQuery({
     page,
     page_size: 20,
@@ -81,23 +202,53 @@ export function PlantsList() {
   });
 
   const [registerOpen, setRegisterOpen] = React.useState(false);
+  const [editPlant, setEditPlant] = React.useState<PlantResponse | null>(null);
+  const [archivePlant, setArchivePlant] = React.useState<PlantResponse | null>(null);
 
   const items = query.data?.items ?? [];
   const meta = query.data?.meta;
   const branchNameById = new Map((branchesQuery.data ?? []).map((b) => [b.id, b.name]));
-  const speciesNameById = new Map((speciesQuery.data?.items ?? []).map((s) => [s.id, s.common_name]));
+  const speciesById = new Map((speciesQuery.data?.items ?? []).map((s) => [s.id, s]));
+  const supplierNameById = new Map((suppliersQuery.data ?? []).map((s) => [s.id, s.name]));
+  const categoryIdToCode = new Map((categoriesQuery.data ?? []).map((c) => [c.id, c.code]));
   const hasFilters = search !== "" || branchId !== ALL || speciesId !== ALL || status !== ALL;
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Plants</CardTitle>
-        <PermissionGate permission="plants:write">
-          <Button type="button" size="sm" onClick={() => setRegisterOpen(true)}>
-            <Plus className="size-4" aria-hidden="true" />
-            Register plant
-          </Button>
-        </PermissionGate>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border">
+            <button
+              type="button"
+              className={`flex items-center gap-1 rounded-l-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                viewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+              }`}
+              onClick={() => setViewMode("grid")}
+              aria-label="Grid view"
+            >
+              <LayoutGrid className="size-3.5" />
+              Grid
+            </button>
+            <button
+              type="button"
+              className={`flex items-center gap-1 rounded-r-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                viewMode === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+              }`}
+              onClick={() => setViewMode("table")}
+              aria-label="Table view"
+            >
+              <List className="size-3.5" />
+              Table
+            </button>
+          </div>
+          <PermissionGate permission="plants:write">
+            <Button type="button" size="sm" onClick={() => setRegisterOpen(true)}>
+              <Plus className="size-4" aria-hidden="true" />
+              Register plant
+            </Button>
+          </PermissionGate>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-2 tablet:flex-row tablet:flex-wrap">
@@ -153,9 +304,13 @@ export function PlantsList() {
         </div>
 
         {query.isLoading ? (
-          <div className="flex flex-col gap-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
+          <div className={viewMode === "grid" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-2"}>
+            {Array.from({ length: viewMode === "grid" ? 6 : 5 }).map((_, i) => (
+              viewMode === "grid" ? (
+                <Skeleton key={i} className="h-40 rounded-xl" />
+              ) : (
+                <Skeleton key={i} className="h-10 w-full" />
+              )
             ))}
           </div>
         ) : query.isError ? (
@@ -168,32 +323,91 @@ export function PlantsList() {
           />
         ) : (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Label</TableHead>
-                  <TableHead>Species</TableHead>
-                  <TableHead>Branch</TableHead>
-                  <TableHead>Zone</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Age</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            {viewMode === "grid" ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map((plant) => (
-                  <TableRow key={plant.id} className="cursor-pointer" onClick={() => router.push(`/plants/${plant.id}`)}>
-                    <TableCell className="font-medium text-foreground">{plant.common_label ?? "Unlabeled"}</TableCell>
-                    <TableCell>{speciesNameById.get(plant.species_id) ?? "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{branchNameById.get(plant.branch_id) ?? "—"}</TableCell>
-                    <TableCell className="text-muted-foreground">{plant.zone ?? "—"}</TableCell>
-                    <TableCell>
-                      <PlantStatusBadge status={plant.status} />
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">{plant.age_days} days</TableCell>
-                  </TableRow>
+                  <PlantCard
+                    key={plant.id}
+                    plant={plant}
+                    species={speciesById.get(plant.species_id)}
+                    branchName={branchNameById.get(plant.branch_id)}
+                    categoryIdToCode={categoryIdToCode}
+                    onClick={() => router.push(`/plants/${plant.id}`)}
+                  />
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Label</TableHead>
+                    <TableHead>Species</TableHead>
+                    <TableHead>Branch</TableHead>
+                    <TableHead>Zone</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Age</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((plant) => (
+                    <TableRow key={plant.id}>
+                      <TableCell
+                        className="cursor-pointer font-medium text-foreground hover:underline"
+                        onClick={() => router.push(`/plants/${plant.id}`)}
+                      >
+                        {plant.common_label ?? "Unlabeled"}
+                      </TableCell>
+                      <TableCell className="cursor-pointer hover:underline" onClick={() => router.push(`/plants/${plant.id}`)}>
+                        {speciesById.get(plant.species_id)?.common_name ?? "—"}
+                      </TableCell>
+                      <TableCell className="cursor-pointer text-muted-foreground hover:underline" onClick={() => router.push(`/plants/${plant.id}`)}>
+                        {branchNameById.get(plant.branch_id) ?? "—"}
+                      </TableCell>
+                      <TableCell className="cursor-pointer text-muted-foreground hover:underline" onClick={() => router.push(`/plants/${plant.id}`)}>
+                        {plant.zone ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <PlantStatusBadge status={plant.status} />
+                      </TableCell>
+                      <TableCell className="cursor-pointer text-right text-muted-foreground hover:underline" onClick={() => router.push(`/plants/${plant.id}`)}>
+                        {plant.age_days} days
+                      </TableCell>
+                      <TableCell>
+                        {plant.archived_at === null && (
+                          <div className="flex gap-1">
+                            <PermissionGate permission="plants:write">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7"
+                                onClick={() => setEditPlant(plant)}
+                                aria-label={`Edit ${plant.common_label ?? "plant"}`}
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                            </PermissionGate>
+                            <PermissionGate permission="plants:write">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-destructive hover:text-destructive"
+                                onClick={() => setArchivePlant(plant)}
+                                aria-label={`Archive ${plant.common_label ?? "plant"}`}
+                              >
+                                <Archive className="size-3.5" />
+                              </Button>
+                            </PermissionGate>
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
 
             {meta && meta.total_pages > 1 && (
               <div className="flex items-center justify-between text-body-sm text-muted-foreground">
@@ -221,6 +435,8 @@ export function PlantsList() {
       </CardContent>
 
       <RegisterPlantDialog open={registerOpen} onOpenChange={setRegisterOpen} />
+      {editPlant && <EditPlantDialog open={!!editPlant} onOpenChange={(open) => { if (!open) setEditPlant(null); }} plant={editPlant} />}
+      {archivePlant && <ArchivePlantDialog open={!!archivePlant} onOpenChange={(open) => { if (!open) setArchivePlant(null); }} plantId={archivePlant.id} plantLabel={archivePlant.common_label ?? "Unlabeled plant"} />}
     </Card>
   );
 }

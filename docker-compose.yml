@@ -66,7 +66,7 @@ x-app-env: &app-env
   # works without anyone hand-generating a keypair first (see that
   # module's own docstring). Production MUST set these -- enforced by
   # that same function raising RuntimeError, not by anything in this file.
-  CORS_ALLOWED_ORIGINS: '["http://localhost:3000"]'
+  CORS_ALLOWED_ORIGINS: '["http://localhost","http://localhost:3000"]'
   # The 50-test Playwright e2e suite self-provisions a unique account per
   # test (~40+ signups per run); the production-safe default of 10 signups
   # per hour would block it. Dev/CI only -- production must set a low value.
@@ -87,6 +87,21 @@ x-app-env: &app-env
   # flows require to persist. Both apps fully support it (see
   # apps/web/lib/auth/session-boot.ts and apps/api/app/api/routes/auth.py).
   AUTH_USE_REFRESH_COOKIE: ${AUTH_USE_REFRESH_COOKIE:-true}
+  # Secure cookies are only sent by the browser over HTTPS.  The local
+  # dev stack runs on plain HTTP (no TLS termination), so the Secure
+  # flag must be False here -- otherwise the browser silently refuses to
+  # store or transmit the nv_refresh_token / nv_csrf_token cookies,
+  # breaking the refresh and CSRF double-submit flows entirely.
+  AUTH_REFRESH_COOKIE_SECURE: ${AUTH_REFRESH_COOKIE_SECURE:-false}
+  # Ollama runs on the host machine, not inside the Docker network.
+  # host.docker.internal resolves to the host on Docker Desktop (macOS/
+  # Windows) out of the box. On Linux the `extra_hosts` directive on
+  # the api service (below) provides the same mapping.
+  LLM_PROVIDER: ollama
+  OLLAMA_BASE_URL: http://host.docker.internal:11434
+  OLLAMA_CHAT_MODEL: llama3.2
+  EMBEDDING_PROVIDER: ollama
+  OLLAMA_EMBEDDING_MODEL: mxbai-embed-large
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
   CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
@@ -140,6 +155,10 @@ services:
     <<: *api-image
     environment:
       <<: *app-env
+    # host.docker.internal: on Docker Desktop (macOS/Windows) this resolves
+    # automatically; on Linux Docker the extra_hosts mapping below is needed.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Bind-mounts source for hot reload, per the architecture doc quoted
     # above. Overrides the image's production `gunicorn` CMD with
     # `uvicorn --reload`: gunicorn's worker-recycling model doesn't
@@ -232,7 +251,7 @@ services:
     # nginx's `depends_on: web: service_healthy` (§10) still resolves.
     # busybox wget ships with the node:26-alpine deps stage.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 30s
       timeout: 5s
       retries: 3

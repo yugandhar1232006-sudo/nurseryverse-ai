@@ -30,7 +30,7 @@ export function InventorySummaryCards({ branchId }: { branchId: string }) {
     { label: "Lines", value: summary.line_count },
     { label: "Available", value: summary.total_available_quantity },
     { label: "Low stock", value: summary.low_stock_count },
-    { label: "Valuation", value: `$${summary.total_valuation.toFixed(2)}` },
+    { label: "Valuation", value: `₹${summary.total_valuation.toFixed(2)}` },
   ];
 
   return (

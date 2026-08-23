@@ -1025,6 +1025,7 @@ def _apply_common_overrides(app, harness: "AuthTestHarness") -> None:
         get_sales_order_service,
         get_sales_reporting_service,
         get_species_service,
+        get_supplier_repository,
         get_survival_prediction_inference,
         get_treatment_service,
         get_water_recommendation_inference,
@@ -1064,6 +1065,8 @@ def _apply_common_overrides(app, harness: "AuthTestHarness") -> None:
     app.dependency_overrides[get_plant_variety_service] = lambda: harness.plant_variety_service
     # --- Added by Phase 6 Module 6 ---
     app.dependency_overrides[get_plant_service] = lambda: harness.plant_service
+    # --- Suppliers read-only endpoint (Phase 10) ---
+    app.dependency_overrides[get_supplier_repository] = lambda: harness.suppliers
     app.dependency_overrides[get_growth_service] = lambda: harness.growth_service
     app.dependency_overrides[get_health_service] = lambda: harness.health_service
     app.dependency_overrides[get_watering_service] = lambda: harness.watering_service

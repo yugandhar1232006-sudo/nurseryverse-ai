@@ -96,6 +96,9 @@ class Plant(UUIDPKMixin, BranchScopedMixin, TimestampMixin, Base):
     archived_at: Mapped[datetime | None] = mapped_column(nullable=True)
     archived_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Optional free-text description/notes for the plant record.
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     species: Mapped["Species"] = relationship(back_populates="plants")
     variety: Mapped["PlantVariety"] = relationship(back_populates="plants")
     images: Mapped[list["PlantImage"]] = relationship(

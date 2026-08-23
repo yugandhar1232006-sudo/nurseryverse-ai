@@ -133,7 +133,7 @@ export function QuotationsList() {
                         {quotation.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-medium text-foreground">${Number(quotation.total_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium text-foreground">₹{Number(quotation.total_amount).toFixed(2)}</TableCell>
                     <TableCell className="text-muted-foreground">{new Date(quotation.created_at).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}

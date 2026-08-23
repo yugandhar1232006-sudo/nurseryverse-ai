@@ -133,7 +133,7 @@ export function SalesOrdersList() {
                       </Badge>
                     </TableCell>
                     <TableCell className="capitalize text-muted-foreground">{order.payment_status.replace("_", " ")}</TableCell>
-                    <TableCell className="text-right font-medium text-foreground">${Number(order.total_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium text-foreground">₹{Number(order.total_amount).toFixed(2)}</TableCell>
                     <TableCell className="text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}

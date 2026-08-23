@@ -110,6 +110,56 @@ class TestGetPlantSummary:
         assert result == {"error": "You do not have permission to view this plant."}
 
 
+class TestListPlants:
+    async def test_returns_plants_when_authorized(self, harness):
+        org_id = uuid.uuid4()
+        await _register_plant(harness, org_id=org_id)
+        user = await _authorized_user(harness, org_id=org_id, permission_codes=["plants:read"])
+        registry = harness.build_assistant_tool_registry(
+            user=user, org_id=org_id, authz=harness.authorization_service, request_context=_CTX
+        )
+
+        result = await registry.invoke("list_plants", {})
+
+        assert "plants" in result
+        assert "total" in result
+        assert result["total"] >= 1
+        assert "error" not in result
+
+    async def test_denies_when_user_lacks_plants_read_permission(self, harness):
+        org_id = uuid.uuid4()
+        user = await _authorized_user(harness, org_id=org_id, permission_codes=["inventory:read"])
+        registry = harness.build_assistant_tool_registry(
+            user=user, org_id=org_id, authz=harness.authorization_service, request_context=_CTX
+        )
+
+        result = await registry.invoke("list_plants", {})
+
+        assert result == {"error": "You do not have permission to view plants."}
+
+    async def test_returns_error_with_no_org_context(self, harness):
+        user = await harness.create_user(email=f"{uuid.uuid4()}@example.com")
+        registry = harness.build_assistant_tool_registry(
+            user=user, org_id=None, authz=harness.authorization_service, request_context=_CTX
+        )
+
+        result = await registry.invoke("list_plants", {})
+
+        assert result == {"error": "No organization context."}
+
+    async def test_filters_by_status(self, harness):
+        org_id = uuid.uuid4()
+        user = await _authorized_user(harness, org_id=org_id, permission_codes=["plants:read"])
+        registry = harness.build_assistant_tool_registry(
+            user=user, org_id=org_id, authz=harness.authorization_service, request_context=_CTX
+        )
+
+        result = await registry.invoke("list_plants", {"status": "in_production"})
+
+        assert "plants" in result
+        assert "error" not in result
+
+
 class TestGetInventoryStatus:
     async def test_returns_error_with_no_org_context(self, harness):
         user = await harness.create_user(email=f"{uuid.uuid4()}@example.com")
@@ -324,7 +374,7 @@ class TestToolDefinitionsAndDispatch:
         names = {d["name"] for d in registry.tool_definitions()}
 
         assert names == {
-            "get_plant_summary", "get_inventory_status", "get_sales_summary", "get_ai_predictions",
+            "list_plants", "get_plant_summary", "get_inventory_status", "get_sales_summary", "get_ai_predictions",
             "propose_watering_log", "propose_health_observation",
         }
 

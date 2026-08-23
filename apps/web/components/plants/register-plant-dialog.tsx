@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -14,10 +15,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApiFormErrors } from "@/lib/forms/use-api-form-errors";
 import { useBranchesQuery } from "@/lib/shell/queries";
 import { useSpeciesListQuery, usePlantVarietiesQuery } from "@/lib/catalog/queries";
+import { useSuppliersQuery } from "@/lib/suppliers/queries";
 import { useRegisterPlantMutation } from "@/lib/plants/mutations";
 import { registerPlantSchema, type RegisterPlantFormValues } from "@/lib/validation/plants";
 
 const NO_VARIETY = "__none__";
+const NO_SUPPLIER = "__none__";
 
 const DEFAULT_VALUES: RegisterPlantFormValues = {
   branch_id: "",
@@ -26,19 +29,17 @@ const DEFAULT_VALUES: RegisterPlantFormValues = {
   common_label: "",
   zone: "",
   batch_number: "",
+  supplier_id: "",
+  purchase_price: "",
+  purchase_date: "",
+  planted_at: "",
   price: "",
+  description: "",
 };
 
-/**
- * `RegisterPlantRequest` also carries `supplier_id`/`purchase_price`/
- * `purchase_date`/`planted_at` -- deliberately not exposed here for the
- * initial registration form (no Supplier resource/UI exists anywhere in
- * Phase 7 yet, and `planted_at` defaults server-side to "now," which is
- * correct for the overwhelming majority of real registrations). See
- * docs/frontend/11-plant-lifecycle.md's Known Limitations.
- */
 export function RegisterPlantDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const branchesQuery = useBranchesQuery();
+  const suppliersQuery = useSuppliersQuery();
   const mutation = useRegisterPlantMutation();
 
   const form = useForm<RegisterPlantFormValues>({
@@ -65,7 +66,12 @@ export function RegisterPlantDialog({ open, onOpenChange }: { open: boolean; onO
         common_label: values.common_label || null,
         zone: values.zone || null,
         batch_number: values.batch_number || null,
+        supplier_id: values.supplier_id && values.supplier_id !== NO_SUPPLIER ? values.supplier_id : null,
+        purchase_price: values.purchase_price === "" ? null : Number(values.purchase_price),
+        purchase_date: values.purchase_date || null,
+        planted_at: values.planted_at || null,
         price: values.price === "" ? null : Number(values.price),
+        description: values.description || null,
       },
       { onSuccess: () => onOpenChange(false), onError: handleApiError },
     );
@@ -219,15 +225,98 @@ export function RegisterPlantDialog({ open, onOpenChange }: { open: boolean; onO
                 name="price"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Price (optional)</FormLabel>
+                    <FormLabel>Sale price (optional)</FormLabel>
                     <FormControl>
-                      <Input inputMode="decimal" {...field} />
+                      <Input inputMode="decimal" placeholder="0.00" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="supplier_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Supplier (optional)</FormLabel>
+                  {suppliersQuery.isLoading ? (
+                    <Skeleton className="h-9 w-full" />
+                  ) : (
+                    <Select value={field.value || NO_SUPPLIER} onValueChange={(v) => field.onChange(v === NO_SUPPLIER ? "" : v)}>
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a supplier" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={NO_SUPPLIER}>No supplier</SelectItem>
+                        {(suppliersQuery.data ?? []).map((supplier) => (
+                          <SelectItem key={supplier.id} value={supplier.id}>
+                            {supplier.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-1 gap-4 tablet:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="purchase_price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Purchase price (optional)</FormLabel>
+                    <FormControl>
+                      <Input inputMode="decimal" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="purchase_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Purchase date (optional)</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="planted_at"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Planted date (optional)</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Notes about this plant..." rows={3} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
                 Cancel

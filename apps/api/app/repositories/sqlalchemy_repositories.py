@@ -1303,6 +1303,12 @@ class SqlAlchemySupplierRepository:
     async def get_by_id(self, supplier_id: uuid.UUID) -> Supplier | None:
         return await self._session.get(Supplier, supplier_id)
 
+    async def list_for_nursery(self, nursery_id: uuid.UUID) -> list[Supplier]:
+        from sqlalchemy import select
+        stmt = select(Supplier).where(Supplier.nursery_id == nursery_id).order_by(Supplier.name)
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())
+
 
 # --------------------------------------------------------------------------
 # Module 7 (Plant Digital Twin Engine)
@@ -2640,6 +2646,51 @@ class SqlAlchemyKnowledgeBaseChunkRepository:
         query = query.group_by(KnowledgeBaseChunk.source_type)
         result = await self._session.execute(query)
         return [{"source_type": row.source_type, "count": row.count} for row in result.all()]
+
+    # --- Added by RAG Ingestion Pipeline (Knowledge Article management) ---
+    async def delete_by_source_ref(self, source_ref: str) -> int:
+        result = await self._session.execute(
+            delete(KnowledgeBaseChunk).where(
+                KnowledgeBaseChunk.source_type == "knowledge_article",
+                KnowledgeBaseChunk.source_ref == source_ref,
+            )
+        )
+        return result.rowcount  # type: ignore[return-value]
+
+    async def get_by_source_ref(self, source_ref: str) -> list[KnowledgeBaseChunk]:
+        result = await self._session.execute(
+            select(KnowledgeBaseChunk)
+            .where(
+                KnowledgeBaseChunk.source_type == "knowledge_article",
+                KnowledgeBaseChunk.source_ref == source_ref,
+            )
+            .order_by(KnowledgeBaseChunk.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def list_distinct_articles(self, *, offset: int = 0, limit: int = 50) -> list[dict]:
+        result = await self._session.execute(
+            select(
+                KnowledgeBaseChunk.source_ref,
+                KnowledgeBaseChunk.title,
+                func.count().label("chunk_count"),
+                func.min(KnowledgeBaseChunk.created_at).label("first_created"),
+            )
+            .where(KnowledgeBaseChunk.source_type == "knowledge_article")
+            .group_by(KnowledgeBaseChunk.source_ref, KnowledgeBaseChunk.title)
+            .order_by(func.min(KnowledgeBaseChunk.created_at).desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return [
+            {
+                "source_ref": row.source_ref,
+                "title": row.title,
+                "chunk_count": row.chunk_count,
+                "created_at": row.first_created,
+            }
+            for row in result.all()
+        ]
 
 
 # ======================================================================

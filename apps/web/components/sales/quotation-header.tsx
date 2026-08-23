@@ -75,16 +75,16 @@ export function QuotationHeader({ quotation }: { quotation: QuotationResponse })
 
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-body-sm text-muted-foreground">
           <span>
-            Subtotal: <span className="text-foreground">${Number(quotation.subtotal_amount).toFixed(2)}</span>
+            Subtotal: <span className="text-foreground">₹{Number(quotation.subtotal_amount).toFixed(2)}</span>
           </span>
           <span>
-            Discount: <span className="text-foreground">${Number(quotation.discount_amount).toFixed(2)}</span>
+            Discount: <span className="text-foreground">₹{Number(quotation.discount_amount).toFixed(2)}</span>
           </span>
           <span>
-            Tax: <span className="text-foreground">${Number(quotation.tax_amount).toFixed(2)}</span>
+            Tax: <span className="text-foreground">₹{Number(quotation.tax_amount).toFixed(2)}</span>
           </span>
           <span>
-            Total: <span className="text-foreground">${Number(quotation.total_amount).toFixed(2)}</span>
+            Total: <span className="text-foreground">₹{Number(quotation.total_amount).toFixed(2)}</span>
           </span>
           {quotation.valid_until && <span>Valid until: {new Date(quotation.valid_until).toLocaleDateString()}</span>}
         </div>
@@ -142,9 +142,9 @@ export function QuotationHeader({ quotation }: { quotation: QuotationResponse })
                 <TableRow key={item.id}>
                   <TableCell className="text-foreground">{item.description ?? "—"}</TableCell>
                   <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right">${Number(item.unit_price).toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${Number(item.discount_amount).toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-medium text-foreground">${Number(item.line_total).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">₹{Number(item.unit_price).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">₹{Number(item.discount_amount).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium text-foreground">₹{Number(item.line_total).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

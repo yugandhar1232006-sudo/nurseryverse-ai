@@ -15,7 +15,7 @@ import type { components } from "@/lib/api/generated/schema";
  * *Request* schema (accepts either). The frontend never re-derives a
  * total from `tax_rate` client-side -- the rate itself isn't persisted
  * anywhere past `Quotation`/`SalesOrder` creation, only the resulting
- * dollar `tax_amount`, so all totals shown are exactly what the backend
+ * rupee `tax_amount`, so all totals shown are exactly what the backend
  * computed and returned.
  *
  * Permission model (see `sales.py`'s route declarations): `sales:read`

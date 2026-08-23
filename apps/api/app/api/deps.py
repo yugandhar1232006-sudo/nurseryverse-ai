@@ -115,6 +115,7 @@ from app.repositories.sqlalchemy_repositories import (
     SqlAlchemyWateringLogRepository,
 )
 from app.ai.assistant.knowledge_retrieval import KnowledgeRetrievalService
+from app.services.knowledge_article_service import KnowledgeArticleService
 from app.ai.assistant.orchestrator import AssistantOrchestrator
 from app.ai.assistant.tool_registry import AssistantToolRegistry
 from app.ai.common import FeatureStore, ModelRegistry, PredictionLogger
@@ -1915,3 +1916,15 @@ def get_data_management_service(
         audit_repo=audit_repo, security_event_repo=security_event_repo,
         prediction_repo=prediction_repo, failure_repo=failure_repo,
     )
+
+
+# --------------------------------------------------------------------------
+# Knowledge Articles (RAG Ingestion Pipeline)
+# --------------------------------------------------------------------------
+
+
+def get_knowledge_article_service(
+    knowledge_repo=Depends(get_knowledge_base_chunk_repository),
+    settings: Settings = Depends(get_settings),
+) -> KnowledgeArticleService:
+    return KnowledgeArticleService(settings=settings, chunk_repo=knowledge_repo)

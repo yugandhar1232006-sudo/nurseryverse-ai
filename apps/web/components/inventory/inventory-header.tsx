@@ -69,12 +69,12 @@ export function InventoryHeader({ item }: { item: InventoryResponse }) {
         </span>
         {item.unit_cost != null && (
           <span>
-            Unit cost: <span className="text-foreground">${item.unit_cost.toFixed(2)}</span>
+            Unit cost: <span className="text-foreground">₹{item.unit_cost.toFixed(2)}</span>
           </span>
         )}
         {item.unit_price != null && (
           <span>
-            Unit price: <span className="text-foreground">${item.unit_price.toFixed(2)}</span>
+            Unit price: <span className="text-foreground">₹{item.unit_price.toFixed(2)}</span>
           </span>
         )}
       </div>

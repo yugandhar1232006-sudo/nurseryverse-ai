@@ -85,7 +85,7 @@ export function SalesList() {
                         {sale.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right font-medium text-foreground">${Number(sale.total_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium text-foreground">₹{Number(sale.total_amount).toFixed(2)}</TableCell>
                     <TableCell className="text-muted-foreground">{new Date(sale.created_at).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}

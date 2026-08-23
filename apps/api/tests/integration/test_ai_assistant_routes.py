@@ -103,10 +103,13 @@ class TestSendMessage:
         assert response.status_code == 403
 
     async def test_returns_503_when_the_assistant_is_not_configured(self, authenticated_client, harness):
-        """No mocked orchestrator here -- this sandbox has no ANTHROPIC_API_KEY, so the real orchestrator raises."""
+        """With LLM_PROVIDER=anthropic and no API key, the real orchestrator raises ModelUnavailableError."""
         ac, user = authenticated_client
         org_id = uuid.uuid4()
         harness.grant_role(user, org_id=org_id, role_code="grower", permission_codes=["ai_assistant:use"])
+        # Force Anthropic provider with no key to trigger the 503 path
+        harness.settings.LLM_PROVIDER = "anthropic"
+        harness.settings.ANTHROPIC_API_KEY = ""
 
         response = await ac.post("/api/v1/ai/assistant/message", json={"content": "How is my fig plant?"})
 
