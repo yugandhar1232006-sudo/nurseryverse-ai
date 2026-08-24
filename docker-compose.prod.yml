@@ -7,11 +7,16 @@
 # Applied ON TOP OF docker-compose.yml, not standalone:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 #
-# Requires Docker Compose v2.24+ for the `!override` merge tag used below
-# (removes docker-compose.yml's dev-only bind mounts / host port
-# publishes / `build:` / `command:` overrides entirely, rather than
-# Compose's default list-concatenation merge behavior, which would
-# otherwise leave them in place alongside this file's replacements).
+# Requires Docker Compose v2.24.4+ for the `!override` and `!reset` merge
+# tags used below. `!override` REPLACES docker-compose.yml's dev-only host
+# port publishes / bind mounts / environment entirely (rather than Compose's
+# default list-concatenation / map-merge, which would otherwise leave them
+# in place alongside this file's replacements). `!reset` REMOVES the dev-only
+# `build:` and `command:` keys so each service runs its pre-built image and
+# the image's own baked production CMD, not the dev build/command. A bare
+# `null` cannot be used for this: `build:` must be a string or mapping, so
+# `build: null` fails schema validation ("services.<svc>.build must be a
+# string") -- the removal must be expressed with the `!reset` tag.
 #
 # Images are referenced by tag (`${API_IMAGE_TAG}` etc.), built and pushed
 # by the GitHub Actions pipeline (see .github/workflows/ci.yml) -- this
@@ -49,9 +54,9 @@ services:
           memory: 128M
 
   api:
-    build: !override null
+    build: !reset null  # remove dev build: run the pre-built ${API_IMAGE_TAG} image, never build in place
     image: ${API_IMAGE_TAG:?API_IMAGE_TAG must be set, e.g. ghcr.io/org/nurseryverse-api:1.4.2}
-    command: !override null  # falls back to the image's own production CMD (gunicorn+uvicorn workers) -- no dev `--reload` override
+    command: !reset null  # remove dev `uvicorn --reload`: fall back to the image's own production CMD (gunicorn+uvicorn workers)
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -76,8 +81,11 @@ services:
           memory: 1G
 
   worker:
-    build: !override null
+    build: !reset null  # remove dev build: run the pre-built ${WORKER_IMAGE_TAG} image
     image: ${WORKER_IMAGE_TAG:?WORKER_IMAGE_TAG must be set, e.g. ghcr.io/org/nurseryverse-worker:1.4.2}
+    # command NOT reset: docker-compose.yml's `celery -A app.workers worker`
+    # is the production worker command (not a dev-only command like the api's
+    # `--reload`), so it is inherited as-is.
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -93,8 +101,11 @@ services:
           memory: 1G
 
   beat:
-    build: !override null
+    build: !reset null  # remove dev build: run the pre-built ${WORKER_IMAGE_TAG} image (beat reuses the worker image)
     image: ${WORKER_IMAGE_TAG:?WORKER_IMAGE_TAG must be set, e.g. ghcr.io/org/nurseryverse-worker:1.4.2}
+    # command NOT reset: docker-compose.yml's `celery -A app.workers beat`
+    # is the production beat command (and the base already sets
+    # `healthcheck: [NONE]` for beat, inherited here), so both are kept as-is.
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -114,8 +125,15 @@ services:
           memory: 512M
 
   web:
-    build: !override null
+    build: !reset null  # remove dev build (target: deps): run the pre-built ${WEB_IMAGE_TAG} standalone image
     image: ${WEB_IMAGE_TAG:?WEB_IMAGE_TAG must be set, e.g. ghcr.io/org/nurseryverse-web:1.4.2}
+    # Remove docker-compose.yml's dev command `sh -c "npm ci && npm run dev
+    # -- -H 0.0.0.0"`. That command targets the `deps` stage's full
+    # node_modules + `next` CLI; the production `runner` image is the Next.js
+    # standalone output and has no npm / package.json / dev toolchain, so the
+    # dev command would fail there. Falls back to the image's own production
+    # CMD -- `node server.js`, the standalone server (web.Dockerfile runner).
+    command: !reset null
     # No environment override: the production image has its origin baked
     # at build time (NEXT_PUBLIC_API_BASE_URL, see web.Dockerfile's
     # header) -- it never reads the dev compose's NEXT_PUBLIC_API_BASE_URL.
@@ -134,7 +152,13 @@ services:
 
   nginx:
     restart: unless-stopped
-    ports:
+    # !override, not default list-merge: docker-compose.yml's nginx already
+    # publishes ["80:80"], and Compose's default is to CONCATENATE port lists
+    # -- that would yield ["80:80", "80:80", "443:443"], a duplicate host-port
+    # bind that fails at `up` with "port is already allocated". Replacing the
+    # list (same pattern as this service's volumes below, and the other
+    # services' `ports: !override []`) publishes exactly 80 + 443.
+    ports: !override
       - "80:80"
       - "443:443"
     volumes: !override
